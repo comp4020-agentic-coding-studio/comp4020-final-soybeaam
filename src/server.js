@@ -1,0 +1,120 @@
+import Fastify from "fastify";
+import fastifyCookie from "@fastify/cookie";
+import fastifyFormbody from "@fastify/formbody";
+import { readFileSync } from "node:fs";
+import {
+  findOrCreateUser,
+  userByToken,
+  listEvents,
+  getEvent,
+  createEvent,
+  checkIn,
+  hasCheckedIn,
+  attendees,
+} from "./db.js";
+import { renderMarkdown } from "./markdown.js";
+import { homePage, loginPage, newEventPage, eventPage, readmePage } from "./views.js";
+
+const app = Fastify({ logger: true });
+
+// Cookie identity only, deliberately — see PROCESS.md for the trade-off this
+// makes against real accounts/auth. SESSION_SECRET should be set in
+// production; a dev fallback keeps `pnpm check` working without extra setup.
+const SESSION_SECRET = process.env.SESSION_SECRET ?? "dev-secret-change-me";
+
+await app.register(fastifyCookie, { secret: SESSION_SECRET });
+await app.register(fastifyFormbody);
+
+app.addHook("onRequest", async (req) => {
+  const token = req.cookies.session && req.unsignCookie(req.cookies.session);
+  req.user = token?.valid ? userByToken(token.value) ?? null : null;
+});
+
+app.get("/healthz", async () => "ok");
+
+app.get("/", async (req, reply) => {
+  reply.type("text/html").send(homePage({ user: req.user, events: listEvents() }));
+});
+
+app.get("/login", async (req, reply) => {
+  reply.type("text/html").send(loginPage());
+});
+
+app.post("/login", async (req, reply) => {
+  const email = (req.body?.email ?? "").trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    reply.code(400).type("text/html").send(loginPage({ error: "Enter a valid email." }));
+    return;
+  }
+  const user = findOrCreateUser(email);
+  reply.setCookie("session", user.token, { path: "/", httpOnly: true, signed: true });
+  reply.redirect("/");
+});
+
+app.post("/logout", async (req, reply) => {
+  reply.clearCookie("session", { path: "/" });
+  reply.redirect("/");
+});
+
+app.get("/events/new", async (req, reply) => {
+  if (!req.user) {
+    reply.redirect("/login");
+    return;
+  }
+  reply.type("text/html").send(newEventPage({ user: req.user }));
+});
+
+app.post("/events", async (req, reply) => {
+  if (!req.user) {
+    reply.redirect("/login");
+    return;
+  }
+  const { title, event_date, location, affiliation } = req.body ?? {};
+  if (!title || !String(title).trim()) {
+    reply.code(400).type("text/html").send(newEventPage({ user: req.user }));
+    return;
+  }
+  const slug = createEvent({ title, event_date, location, affiliation, created_by: req.user.token });
+  reply.redirect(`/events/${slug}`);
+});
+
+app.get("/events/:slug", async (req, reply) => {
+  const event = getEvent(req.params.slug);
+  if (!event) {
+    reply.code(404).type("text/html").send("<h1>Not found</h1>");
+    return;
+  }
+  const checkedIn = req.user ? hasCheckedIn(event.slug, req.user.token) : false;
+  reply
+    .type("text/html")
+    .send(eventPage({ user: req.user, event, attendees: attendees(event.slug), checkedIn }));
+});
+
+app.post("/events/:slug/checkin", async (req, reply) => {
+  if (!req.user) {
+    reply.redirect("/login");
+    return;
+  }
+  const event = getEvent(req.params.slug);
+  if (!event) {
+    reply.code(404).type("text/html").send("<h1>Not found</h1>");
+    return;
+  }
+  checkIn(event.slug, req.user.token);
+  reply.redirect(`/events/${event.slug}`);
+});
+
+app.get("/readme/", async (req, reply) => {
+  const md = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  reply.type("text/html").send(readmePage({ html: renderMarkdown(md) }));
+});
+
+app.get("/style.css", async (req, reply) => {
+  reply.type("text/css").send(readFileSync(new URL("./style.css", import.meta.url), "utf8"));
+});
+
+const port = Number(process.env.PORT ?? 8080);
+app.listen({ port, host: "0.0.0.0" }).catch((err) => {
+  app.log.error(err);
+  process.exit(1);
+});

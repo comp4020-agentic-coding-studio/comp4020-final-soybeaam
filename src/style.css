@@ -1,0 +1,260 @@
+/* Palette for "On Campus" — a clean white base with a card-based layout so
+   events scan quickly as a grid. One warm accent colour (orange-red) is kept
+   for anything actionable only; everything else stays neutral and quiet. */
+:root {
+  --ink: #16181d;
+  --paper: #ffffff;
+  --accent: #e8623c;
+  --accent-ink: #ffffff;
+  --line: #e5e7eb;
+  --muted: #5b6170;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+header {
+  border-bottom: 1px solid var(--line);
+  padding: 1rem 1.25rem;
+}
+
+nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 64rem;
+  margin: 0 auto;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.who {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+main {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+main.readme {
+  max-width: 38rem;
+}
+
+h1 {
+  font-size: 1.8rem;
+  margin-top: 0;
+}
+
+/* Event card grid (home page) */
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem;
+}
+
+.event-card-item {
+  display: flex;
+}
+
+.event-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.06);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.event-card:hover,
+.event-card:focus-within {
+  box-shadow: 0 2px 4px rgba(16, 24, 40, 0.08), 0 10px 24px rgba(16, 24, 40, 0.1);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-card {
+    transition: none;
+  }
+  .event-card:hover,
+  .event-card:focus-within {
+    transform: none;
+  }
+}
+
+.card-image {
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #fde7dc 0%, #f3f4f6 60%, #e5e7eb 100%);
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  padding: 1rem;
+}
+
+.card-title {
+  font-size: 1.1rem;
+  margin: 0 0 0.25rem;
+  line-height: 1.3;
+}
+
+.card-title a {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.card-title a:hover,
+.card-title a:focus-visible {
+  text-decoration: underline;
+}
+
+.card-title a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.card-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.card-affiliation {
+  font-size: 0.8rem;
+}
+
+.attendee-chip {
+  align-self: flex-start;
+  margin-top: 0.25rem;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f9fafb;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.card-host {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: #fde7dc;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.meta {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.button,
+button {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 1rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 24rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+input {
+  font: inherit;
+  padding: 0.5rem;
+  /* darker than --line: a 1px form-control border needs ~3:1 contrast
+     against the white background (WCAG), and --line alone falls short */
+  border: 1px solid #9ca3af;
+  border-radius: 8px;
+}
+
+.confirmed {
+  color: #2f7a4d;
+  font-weight: 700;
+}
+
+.error {
+  color: #b3261e;
+}
+
+.attendees {
+  padding-left: 1.2rem;
+}
+
+footer {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
