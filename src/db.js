@@ -25,6 +25,8 @@ db.exec(`
     event_date TEXT,
     location TEXT,
     affiliation TEXT,
+    category TEXT,
+    price_cents INTEGER NOT NULL DEFAULT 0,
     created_by TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -37,6 +39,21 @@ db.exec(`
     UNIQUE (event_slug, user_token)
   );
 `);
+
+// Older databases (the local ./data dir, or the Fly volume from before this
+// column existed) were created before `category`/`price_cents` existed.
+// CREATE TABLE IF NOT EXISTS doesn't retrofit new columns, so add them by
+// hand, guarded by PRAGMA table_info rather than SQLite's "ADD COLUMN IF NOT
+// EXISTS" (only available on newer SQLite than we want to depend on).
+const existingColumns = new Set(
+  db.prepare("PRAGMA table_info(events)").all().map((c) => c.name),
+);
+if (!existingColumns.has("category")) {
+  db.exec("ALTER TABLE events ADD COLUMN category TEXT");
+}
+if (!existingColumns.has("price_cents")) {
+  db.exec("ALTER TABLE events ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0");
+}
 
 function slugify(title) {
   const base = title
@@ -55,12 +72,24 @@ function slugify(title) {
 const count = db.prepare("SELECT COUNT(*) AS n FROM events").get();
 if (count.n === 0) {
   const insert = db.prepare(
-    "INSERT INTO events (slug, title, event_date, location, affiliation) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents) VALUES (?, ?, ?, ?, ?, ?, ?)",
   );
-  insert.run("welcome-mixer", "Welcome mixer", "2026-10-10", "Union Court", "ANU");
-  insert.run("club-trivia-night", "Club trivia night", "2026-10-15", "Marie Reay 4.03", "Trivia Club");
-  insert.run("study-sprint", "Study sprint", "2026-10-20", "R.G. Menzies Library", null);
+  // welcome-mixer stays free ($0): spec/events.test.ts checks in to it
+  // directly, with no payment step, so it must never carry a price.
+  insert.run("welcome-mixer", "Welcome mixer", "2026-10-10", "Union Court", "ANU", "Social", 0);
+  insert.run(
+    "club-trivia-night",
+    "Club trivia night",
+    "2026-10-15",
+    "Marie Reay 4.03",
+    "Trivia Club",
+    "Quiz/Trivia",
+    1500,
+  );
+  insert.run("study-sprint", "Study sprint", "2026-10-20", "R.G. Menzies Library", null, "Workshop", 0);
 }
+
+export const CATEGORIES = ["Social", "Workshop", "Quiz/Trivia", "Sport", "Party", "Other"];
 
 export function findOrCreateUser(email) {
   const existing = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
@@ -74,28 +103,48 @@ export function userByToken(token) {
   return db.prepare("SELECT * FROM users WHERE token = ?").get(token);
 }
 
-export function listEvents() {
+// sort: "name_asc" | "name_desc" | "soonest" | "latest" (default: latest-created, as before)
+// category: exact match against events.category, or falsy for no filter
+export function listEvents({ sort, category } = {}) {
   // host_email comes from the join so views never need created_by (which holds
   // the host's session token and must not be rendered).
-  return db
-    .prepare(
-      `SELECT events.*, users.email AS host_email,
+  let sql = `SELECT events.*, users.email AS host_email,
               (SELECT COUNT(*) FROM checkins WHERE checkins.event_slug = events.slug) AS attendee_count
-       FROM events LEFT JOIN users ON users.token = events.created_by
-       ORDER BY events.created_at DESC`,
-    )
-    .all();
+       FROM events LEFT JOIN users ON users.token = events.created_by`;
+  const params = [];
+  if (category) {
+    sql += ` WHERE events.category = ?`;
+    params.push(category);
+  }
+  sql +=
+    {
+      name_asc: " ORDER BY events.title COLLATE NOCASE ASC",
+      name_desc: " ORDER BY events.title COLLATE NOCASE DESC",
+      // NULLs (no date set) sort last in both directions, rather than first.
+      soonest: " ORDER BY events.event_date IS NULL, events.event_date ASC",
+    }[sort] ?? " ORDER BY events.created_at DESC";
+  return db.prepare(sql).all(...params);
 }
 
 export function getEvent(slug) {
   return db.prepare("SELECT * FROM events WHERE slug = ?").get(slug);
 }
 
-export function createEvent({ title, event_date, location, affiliation, created_by }) {
+export function createEvent({ title, event_date, location, affiliation, category, price_cents, created_by }) {
   const slug = slugify(title);
   db.prepare(
-    "INSERT INTO events (slug, title, event_date, location, affiliation, created_by) VALUES (?, ?, ?, ?, ?, ?)",
-  ).run(slug, title, event_date || null, location || null, affiliation || null, created_by || null);
+    `INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    slug,
+    title,
+    event_date || null,
+    location || null,
+    affiliation || null,
+    category || null,
+    Number(price_cents) || 0,
+    created_by || null,
+  );
   return slug;
 }
 

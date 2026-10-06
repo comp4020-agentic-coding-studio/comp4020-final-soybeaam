@@ -11,9 +11,10 @@ import {
   checkIn,
   hasCheckedIn,
   attendees,
+  CATEGORIES,
 } from "./db.js";
 import { renderMarkdown } from "./markdown.js";
-import { homePage, loginPage, newEventPage, eventPage, readmePage } from "./views.js";
+import { homePage, loginPage, newEventPage, eventPage, payPage, readmePage } from "./views.js";
 
 const app = Fastify({ logger: true });
 
@@ -33,7 +34,17 @@ app.addHook("onRequest", async (req) => {
 app.get("/healthz", async () => "ok");
 
 app.get("/", async (req, reply) => {
-  reply.type("text/html").send(homePage({ user: req.user, events: listEvents() }));
+  const sort = typeof req.query.sort === "string" ? req.query.sort : undefined;
+  const category = typeof req.query.category === "string" ? req.query.category : undefined;
+  reply.type("text/html").send(
+    homePage({
+      user: req.user,
+      events: listEvents({ sort, category }),
+      sort,
+      category,
+      categories: CATEGORIES,
+    }),
+  );
 });
 
 app.get("/login", async (req, reply) => {
@@ -61,7 +72,7 @@ app.get("/events/new", async (req, reply) => {
     reply.redirect("/login");
     return;
   }
-  reply.type("text/html").send(newEventPage({ user: req.user }));
+  reply.type("text/html").send(newEventPage({ user: req.user, categories: CATEGORIES }));
 });
 
 app.post("/events", async (req, reply) => {
@@ -69,12 +80,20 @@ app.post("/events", async (req, reply) => {
     reply.redirect("/login");
     return;
   }
-  const { title, event_date, location, affiliation } = req.body ?? {};
+  const { title, event_date, location, affiliation, category, price } = req.body ?? {};
   if (!title || !String(title).trim()) {
-    reply.code(400).type("text/html").send(newEventPage({ user: req.user }));
+    reply.code(400).type("text/html").send(newEventPage({ user: req.user, categories: CATEGORIES }));
     return;
   }
-  const slug = createEvent({ title, event_date, location, affiliation, created_by: req.user.token });
+  const slug = createEvent({
+    title,
+    event_date,
+    location,
+    affiliation,
+    category,
+    price_cents: Math.round((Number(price) || 0) * 100),
+    created_by: req.user.token,
+  });
   reply.redirect(`/events/${slug}`);
 });
 
@@ -88,6 +107,25 @@ app.get("/events/:slug", async (req, reply) => {
   reply
     .type("text/html")
     .send(eventPage({ user: req.user, event, attendees: attendees(event.slug), checkedIn }));
+});
+
+app.get("/events/:slug/pay", async (req, reply) => {
+  if (!req.user) {
+    reply.redirect("/login");
+    return;
+  }
+  const event = getEvent(req.params.slug);
+  if (!event) {
+    reply.code(404).type("text/html").send("<h1>Not found</h1>");
+    return;
+  }
+  if (!event.price_cents) {
+    // Nothing to pay for — send them straight to the event page rather than
+    // show a $0 mock checkout.
+    reply.redirect(`/events/${event.slug}`);
+    return;
+  }
+  reply.type("text/html").send(payPage({ user: req.user, event }));
 });
 
 app.post("/events/:slug/checkin", async (req, reply) => {
