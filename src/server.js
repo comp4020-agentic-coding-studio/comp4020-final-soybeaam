@@ -13,9 +13,10 @@ import {
   attendees,
   CATEGORIES,
   lookupPlaceCoords,
+  eventsWithCoords,
 } from "./db.js";
 import { renderMarkdown } from "./markdown.js";
-import { homePage, loginPage, newEventPage, eventPage, payPage, readmePage } from "./views.js";
+import { homePage, loginPage, newEventPage, eventPage, payPage, readmePage, mapPage } from "./views.js";
 
 const app = Fastify({ logger: true });
 
@@ -152,6 +153,22 @@ app.post("/events/:slug/checkin", async (req, reply) => {
   }
   checkIn(event.slug, req.user.token);
   reply.redirect(`/events/${event.slug}`);
+});
+
+app.get("/map", async (req, reply) => {
+  reply.type("text/html").send(mapPage({ user: req.user }));
+});
+
+app.get("/api/events/map", async (req, reply) => {
+  const events = eventsWithCoords().map((event) => ({
+    slug: event.slug,
+    title: event.title,
+    lat: event.lat,
+    lng: event.lng,
+    when: event.starts_at ?? event.event_date,
+    venue: event.venue_name ?? event.location,
+  }));
+  reply.send(events);
 });
 
 app.get("/readme/", async (req, reply) => {

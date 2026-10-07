@@ -330,6 +330,18 @@ export function upsertImportedEvent({
   return slug;
 }
 
+// Events with known coordinates, for the /map page. Selects only what the
+// map needs (not events.*), relying on idx_events_latlng via the same
+// WHERE lat IS NOT NULL predicate.
+export function eventsWithCoords() {
+  return db
+    .prepare(
+      `SELECT slug, title, lat, lng, starts_at, event_date, venue_name, location
+       FROM events WHERE lat IS NOT NULL`,
+    )
+    .all();
+}
+
 export function checkIn(eventSlug, userToken) {
   db.prepare(
     "INSERT OR IGNORE INTO checkins (event_slug, user_token) VALUES (?, ?)",

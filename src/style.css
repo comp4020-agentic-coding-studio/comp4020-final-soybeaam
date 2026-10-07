@@ -156,6 +156,14 @@ h1 {
   display: flex;
 }
 
+.map-container {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 .event-card {
   display: flex;
   flex-direction: column;

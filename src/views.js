@@ -1,19 +1,31 @@
 const escape = (s = "") =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function layout({ title, user, body }) {
+// Leaflet/markercluster are only needed on the map page — loading them on
+// every page would cost five extra network requests on pages that never
+// touch a map, which works against this app's efficiency goal. `layout()`
+// takes an optional `extraHead` string for pages (just mapPage) that need it.
+const LEAFLET_HEAD = `
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>`;
+
+function layout({ title, user, body, extraHead = "" }) {
   return `<!doctype html>
 <html lang="en-AU">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escape(title)}</title>
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/style.css" />${extraHead}
   </head>
   <body>
     <header>
       <nav>
         <a class="brand" href="/">Quad</a>
+        <a href="/map">Map</a>
         <span class="spacer"></span>
         ${
           user
@@ -255,6 +267,48 @@ export function payPage({ user, event }) {
         <label>CVC <input type="text" placeholder="123" disabled /></label>
         <button type="submit">Pay ${escape(priceLabel(event.price_cents ?? 0))} (mock) &amp; check in</button>
       </form>
+    `,
+  });
+}
+
+export function mapPage({ user }) {
+  return layout({
+    title: "Map",
+    user,
+    extraHead: LEAFLET_HEAD,
+    body: `
+      <h1>Event map</h1>
+      <div id="map" class="map-container"></div>
+      <script>
+        (function () {
+          var map = L.map("map").setView([-35.2777, 149.1185], 15);
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors",
+          }).addTo(map);
+
+          var cluster = L.markerClusterGroup();
+
+          fetch("/api/events/map")
+            .then(function (res) { return res.json(); })
+            .then(function (events) {
+              (events || []).forEach(function (event) {
+                if (typeof event.lat !== "number" || typeof event.lng !== "number") return;
+                var lines = [
+                  '<a href="/events/' + event.slug + '">' + event.title + "</a>",
+                ];
+                if (event.venue) lines.push(event.venue);
+                if (event.when) lines.push(event.when);
+                var marker = L.marker([event.lat, event.lng]).bindPopup(lines.join("<br>"));
+                cluster.addLayer(marker);
+              });
+              map.addLayer(cluster);
+            })
+            .catch(function () {
+              // No markers if the fetch fails — map still renders.
+            });
+        })();
+      </script>
     `,
   });
 }
