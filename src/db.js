@@ -166,6 +166,15 @@ if (count.n === 0) {
 
 export const CATEGORIES = ["Social", "Workshop", "Quiz/Trivia", "Sport", "Party", "Other"];
 
+// Finds a sources row by kind (one row per kind is all importers need so
+// far), or creates one. Mirrors findOrCreateUser's find-or-create shape.
+export function findOrCreateSource({ kind, name, url }) {
+  const existing = db.prepare("SELECT * FROM sources WHERE kind = ?").get(kind);
+  if (existing) return existing;
+  db.prepare("INSERT INTO sources (kind, name, url) VALUES (?, ?, ?)").run(kind, name, url ?? null);
+  return db.prepare("SELECT * FROM sources WHERE kind = ?").get(kind);
+}
+
 export function findOrCreateUser(email) {
   const existing = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
   if (existing) return existing;

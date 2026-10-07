@@ -3,8 +3,9 @@
 // scheduled GitHub Actions workflow over `flyctl ssh console`). Shares
 // src/db.js's DATA_DIR-resolved SQLite file, so it operates on the same
 // data the running server sees - no separate DB, no HTTP round trip.
-import { db } from "../db.js";
+import { db, findOrCreateSource } from "../db.js";
 import { importIcsSource } from "../importers/ics.js";
+import { importTicketmasterEvents } from "../importers/ticketmaster.js";
 
 async function main() {
   const sources = db.prepare("SELECT * FROM sources WHERE kind = 'ics'").all();
@@ -17,9 +18,16 @@ async function main() {
     );
   }
 
-  // Ticketmaster import (step 5) goes here
-  if (process.env.TICKETMASTER_API_KEY) {
-    console.log("TICKETMASTER_API_KEY is set, but Ticketmaster import isn't implemented yet (step 5).");
+  const apiKey = process.env.TICKETMASTER_API_KEY;
+  if (apiKey) {
+    const source = findOrCreateSource({ kind: "ticketmaster", name: "Ticketmaster" });
+    const result = await importTicketmasterEvents(source, { apiKey });
+    console.log(
+      `[ticketmaster] ${source.name}: imported ${result.imported}, skipped ${result.skipped}` +
+        (result.errors.length ? `, errors: ${result.errors.join("; ")}` : ""),
+    );
+  } else {
+    console.log("[ticketmaster] skipped: TICKETMASTER_API_KEY not configured");
   }
 }
 
