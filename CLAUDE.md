@@ -13,3 +13,7 @@ What the agent needs to carry from any of it is your call.
 You must think like a developer, following a typical full-stack workflow. You must understand the features and functions of the stakeholders needs, map out basic architecture and create rough conceptual designs before writing code. Build features incrementally and test and debug.
 
 It is IMPORTANT that you follow the rules setout by HANDBOOK.md
+
+# Documentation
+
+In docs/conversation.md, keep track of the user's prompts and Claudes answers with a timestamp, make sure to summarise long answers/prompts and create a new conversation_{identifier}.md every new session. 
