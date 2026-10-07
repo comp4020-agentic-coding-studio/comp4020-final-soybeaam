@@ -12,6 +12,7 @@ import {
   hasCheckedIn,
   attendees,
   CATEGORIES,
+  lookupPlaceCoords,
 } from "./db.js";
 import { renderMarkdown } from "./markdown.js";
 import { homePage, loginPage, newEventPage, eventPage, payPage, readmePage } from "./views.js";
@@ -80,11 +81,16 @@ app.post("/events", async (req, reply) => {
     reply.redirect("/login");
     return;
   }
-  const { title, event_date, location, affiliation, category, price } = req.body ?? {};
+  const { title, event_date, location, affiliation, category, price, venue_name, address, description, url } =
+    req.body ?? {};
   if (!title || !String(title).trim()) {
     reply.code(400).type("text/html").send(newEventPage({ user: req.user, categories: CATEGORIES }));
     return;
   }
+  // Opportunistic geocoding against known places only (no network call here —
+  // that's step 4). A miss just leaves lat/lng null; it never blocks creation.
+  const coords =
+    lookupPlaceCoords(venue_name) || lookupPlaceCoords(location) || lookupPlaceCoords(address);
   const slug = createEvent({
     title,
     event_date,
@@ -93,6 +99,12 @@ app.post("/events", async (req, reply) => {
     category,
     price_cents: Math.round((Number(price) || 0) * 100),
     created_by: req.user.token,
+    venue_name,
+    address,
+    description,
+    url,
+    lat: coords?.lat,
+    lng: coords?.lng,
   });
   reply.redirect(`/events/${slug}`);
 });

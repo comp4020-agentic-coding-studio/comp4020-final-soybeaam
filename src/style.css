@@ -302,13 +302,21 @@ label {
   color: var(--muted);
 }
 
-input {
+input,
+select,
+textarea {
   font: inherit;
   padding: 0.5rem;
   /* darker than --line: a 1px form-control border needs ~3:1 contrast
      against the white background (WCAG), and --line alone falls short */
   border: 1px solid #9ca3af;
   border-radius: 8px;
+}
+
+textarea {
+  min-height: 5rem;
+  resize: vertical;
+  max-width: 100%;
 }
 
 .confirmed {

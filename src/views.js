@@ -169,6 +169,8 @@ export function newEventPage({ user, categories }) {
         <label>Date <input type="date" name="event_date" /></label>
         <label>Location <input type="text" name="location" /></label>
         <label>Affiliation (university, club) <input type="text" name="affiliation" /></label>
+        <label>Venue <input type="text" name="venue_name" /></label>
+        <label>Address <input type="text" name="address" /></label>
         <label>Category
           <select name="category">
             <option value="">None</option>
@@ -178,6 +180,8 @@ export function newEventPage({ user, categories }) {
         <label>Price (0 = free)
           <input type="number" name="price" min="0" step="0.01" value="0" />
         </label>
+        <label>Description <textarea name="description" rows="4"></textarea></label>
+        <label>More info URL <input type="url" name="url" /></label>
         <button type="submit">Create event</button>
       </form>
       <p class="meta">Prices are for testing the checkout step only — no real
@@ -204,14 +208,19 @@ export function eventPage({ user, event, attendees, checkedIn }) {
     </form>`;
   }
 
+  const venueLabel = event.venue_name ?? event.location;
+
   return layout({
     title: event.title,
     user,
     body: `
       <h1>${escape(event.title)}</h1>
-      <p class="meta">${escape(event.event_date ?? "date tbc")} · ${escape(event.location ?? "location tbc")}${
+      <p class="meta">${escape(event.event_date ?? "date tbc")} · ${escape(venueLabel ?? "location tbc")}${
         event.affiliation ? ` · ${escape(event.affiliation)}` : ""
       }${event.category ? ` · ${escape(event.category)}` : ""} · ${escape(priceLabel(price))}</p>
+      ${event.address ? `<p class="meta">${escape(event.address)}</p>` : ""}
+      ${event.description ? `<p>${escape(event.description)}</p>` : ""}
+      ${event.url ? `<p><a href="${escape(event.url)}">More info</a></p>` : ""}
 
       ${action}
 

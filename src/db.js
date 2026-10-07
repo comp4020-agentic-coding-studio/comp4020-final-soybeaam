@@ -218,11 +218,13 @@ export function createEvent({
   description,
   url,
   source_id,
+  lat,
+  lng,
 }) {
   const slug = slugify(title);
   db.prepare(
-    `INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents, created_by, venue_name, address, description, url, source_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents, created_by, venue_name, address, description, url, source_id, lat, lng)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     slug,
     title,
@@ -237,8 +239,22 @@ export function createEvent({
     description || null,
     url || null,
     source_id ?? 1,
+    lat ?? null,
+    lng ?? null,
   );
   return slug;
+}
+
+// Minimal inline geocoding lookup for the manual add-event form (step 2 of
+// the sources/map plan). Only checks the `places` table (known campus
+// venues) by exact case-insensitive name match — no geocache, no network
+// call, that's step 4's geocode module. Returns null, never throws, so a
+// miss never blocks event creation ("no gatekeeper").
+export function lookupPlaceCoords(venueOrAddressText) {
+  const text = String(venueOrAddressText ?? "").trim().toLowerCase();
+  if (!text) return null;
+  const row = db.prepare("SELECT lat, lng FROM places WHERE lower(name) = ?").get(text);
+  return row ? { lat: row.lat, lng: row.lng } : null;
 }
 
 // Inserts or updates an event imported from an external source (ICS,
