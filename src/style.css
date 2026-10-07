@@ -458,3 +458,40 @@ footer {
   padding: 0.2rem 0.6rem;
   font-size: 0.8rem;
 }
+
+/* "From social media" on an event page: one column of cards (embeds need
+   the width), then the paste-a-link form. */
+.event-social {
+  margin-top: 2rem;
+}
+
+.social-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+  max-width: 36rem;
+}
+
+/* Sandboxed oEmbed frame. Fixed height for post widgets (they can't resize
+   the frame from inside an opaque-origin sandbox); 16:9 for YouTube. */
+.social-embed {
+  display: block;
+  width: 100%;
+  height: 560px;
+  margin-top: 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.social-embed--video {
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+
+.social-paste {
+  max-width: 36rem;
+}

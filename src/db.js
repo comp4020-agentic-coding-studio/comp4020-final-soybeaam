@@ -418,6 +418,18 @@ export function eventsWithCoords() {
 // must never un-hide a post. event_slug/query_id keep their existing value
 // when the incoming one is NULL, so a later untargeted query can't detach a
 // post from its event.
+//
+// A bare incoming post (no author, text, media, date or embed) is what a
+// pasted link falls back to when the provider's oEmbed is down. It must not
+// wipe content an earlier successful fetch stored, so in that case every
+// content field keeps its existing value. A normal re-import that drops one
+// field still overwrites it with NULL.
+const BARE = `(excluded.author_name IS NULL AND excluded.author_handle IS NULL
+  AND excluded.text IS NULL AND excluded.media_url IS NULL
+  AND excluded.posted_at IS NULL AND excluded.embed_html IS NULL)`;
+const keepIfBare = (col) =>
+  `${col} = CASE WHEN ${BARE} THEN social_posts.${col} ELSE excluded.${col} END`;
+
 export function upsertSocialPost(post) {
   db.prepare(
     `INSERT INTO social_posts
@@ -427,15 +439,10 @@ export function upsertSocialPost(post) {
      ON CONFLICT(platform, external_id) DO UPDATE SET
        query_id = COALESCE(excluded.query_id, social_posts.query_id),
        event_slug = COALESCE(excluded.event_slug, social_posts.event_slug),
-       author_name = excluded.author_name,
-       author_handle = excluded.author_handle,
-       author_url = excluded.author_url,
-       text = excluded.text,
-       media_url = excluded.media_url,
-       media_type = excluded.media_type,
+       ${["author_name", "author_handle", "author_url", "text", "media_url", "media_type", "posted_at", "embed_html"]
+         .map(keepIfBare)
+         .join(",\n       ")},
        permalink = excluded.permalink,
-       posted_at = excluded.posted_at,
-       embed_html = excluded.embed_html,
        fetched_at = datetime('now')`,
   ).run(
     post.platform,

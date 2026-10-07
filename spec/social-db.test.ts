@@ -86,6 +86,30 @@ describe("upsertSocialPost", () => {
       "t3_event",
     ]);
   });
+
+  it("a bare link-only re-paste keeps the content an earlier fetch stored", () => {
+    // The oEmbed-down fallback carries only platform/external_id/permalink.
+    db.upsertSocialPost(
+      post({ external_id: "t3_embed", author_name: "Someone", embed_html: "<blockquote>hi</blockquote>" }),
+    );
+    db.upsertSocialPost({
+      platform: "reddit",
+      external_id: "t3_embed",
+      permalink: "https://www.reddit.com/r/canberra/comments/one/",
+    });
+    const [row] = rowsFor("reddit", "t3_embed");
+    expect(row.author_name).toBe("Someone");
+    expect(row.text).toBe("First version");
+    expect(row.embed_html).toBe("<blockquote>hi</blockquote>");
+  });
+
+  it("a non-bare re-import still clears a field that went missing", () => {
+    db.upsertSocialPost(post({ external_id: "t3_drop", media_url: "https://i.redd.it/a.jpg", media_type: "image" }));
+    db.upsertSocialPost(post({ external_id: "t3_drop", media_url: null, media_type: null }));
+    const [row] = rowsFor("reddit", "t3_drop");
+    expect(row.media_url).toBeNull();
+    expect(row.text).toBe("First version");
+  });
 });
 
 describe("listSocialPosts", () => {

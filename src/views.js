@@ -208,7 +208,33 @@ export function newEventPage({ user, categories }) {
   });
 }
 
-export function eventPage({ user, event, attendees, checkedIn }) {
+// "From social media" on an event page: its linked posts (embeds allowed
+// here, unlike the feed), then the paste-a-link form (ADR 0003 Option C).
+function eventSocialSection({ user, event, socialPosts, error }) {
+  const list = socialPosts.length
+    ? `<ul class="social-event-list">
+        ${socialPosts.map((p) => `<li>${socialEmbedCard(p, { user })}</li>`).join("\n")}
+      </ul>`
+    : "";
+  const errorLine = error ? `<p class="error" role="alert">${escape(error)}</p>` : "";
+  const form = user
+    ? `<form class="social-paste" method="post" action="/events/${escapeAttr(event.slug)}/social">
+        <label>Add a post
+          <input type="url" name="url" required maxlength="2048"
+            placeholder="Paste a post link (YouTube, X, Reddit, Bluesky, Mastodon, Instagram…)" />
+        </label>
+        <button type="submit">Add post</button>
+      </form>`
+    : `<p><a href="/login">Log in to add a post</a></p>`;
+  return `<section class="event-social" id="social">
+      <h2>From social media</h2>
+      ${list}
+      ${errorLine}
+      ${form}
+    </section>`;
+}
+
+export function eventPage({ user, event, attendees, checkedIn, socialPosts = [], error = null }) {
   const price = event.price_cents ?? 0;
 
   let action;
@@ -250,6 +276,8 @@ export function eventPage({ user, event, attendees, checkedIn }) {
               .join("\n")}</ul>`
           : `<p>Nobody yet — be the first.</p>`
       }
+
+      ${eventSocialSection({ user, event, socialPosts: socialPosts ?? [], error })}
     `,
   });
 }
@@ -345,6 +373,35 @@ function socialTime(iso) {
 // permalink is required, so the card always has at least a badge and a
 // "View on" link.
 export function socialCard(post, { user } = {}) {
+  return renderSocialCard(post, { user, embed: null });
+}
+
+// The provider's oEmbed html runs in a sandboxed srcdoc iframe: scripts may
+// run (the widgets need them) but, with no allow-same-origin, the frame gets
+// an opaque origin and can't touch this page, its cookies or storage.
+// <base target=_blank> makes links inside it open a new tab.
+function embedFrame(post) {
+  const isVideo = post.platform === "youtube";
+  // YouTube's html is a fixed 200x113 iframe; stretch it to fill the frame.
+  const videoStyle = isVideo
+    ? "<style>html,body{height:100%}iframe{width:100%;height:100%;border:0}</style>"
+    : "";
+  const fullDoc = `<!doctype html><meta charset=utf-8><base target=_blank>${videoStyle}<body style=margin:0>${post.embed_html}`;
+  return `<iframe class="social-embed${isVideo ? " social-embed--video" : ""}" title="${escapeAttr(
+    `${platformLabel(post.platform)} post`,
+  )}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" loading="lazy" srcdoc="${escapeAttr(fullDoc)}"></iframe>`;
+}
+
+// Event-page variant: a post with oEmbed html shows the embed in place of
+// the card's text/media; anything else is a normal card. Never used by the
+// /social feed, which must not load third-party embeds (ADR 0003).
+export function socialEmbedCard(post, { user } = {}) {
+  return post.embed_html
+    ? renderSocialCard(post, { user, embed: embedFrame(post) })
+    : socialCard(post, { user });
+}
+
+function renderSocialCard(post, { user, embed }) {
   const label = platformLabel(post.platform);
   const name = post.author_name || post.author_handle || "Unknown author";
   const nameHtml = post.author_url
@@ -376,12 +433,12 @@ export function socialCard(post, { user } = {}) {
     : "";
 
   return `<article class="social-card">
-    ${media}
+    ${embed ? "" : media}
     <div class="card-body">
       <span class="platform-badge">${escape(label)}</span>
       <p class="social-author">${nameHtml}${handle}</p>
       ${timeLine}
-      ${text}
+      ${embed ?? text}
       <div class="social-actions">
         <a href="${escapeAttr(post.permalink)}" rel="noopener noreferrer" target="_blank">View on ${escape(label)}</a>
         ${hide}

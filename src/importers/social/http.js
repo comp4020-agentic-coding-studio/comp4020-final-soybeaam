@@ -19,8 +19,10 @@ export function redact(message, secrets = []) {
 }
 
 // Returns { data } on a 2xx JSON response, otherwise { error }. `secrets`
-// are scrubbed from any error text.
-export async function requestJson(url, { method = "GET", headers = {}, body, secrets = [] } = {}) {
+// are scrubbed from any error text. `redirect` is passed to fetch only when
+// given (the oEmbed resolver uses "error" so a provider can't bounce the
+// server to another host); a refused redirect surfaces as a network error.
+export async function requestJson(url, { method = "GET", headers = {}, body, secrets = [], redirect } = {}) {
   let res;
   try {
     res = await fetch(url, {
@@ -28,6 +30,7 @@ export async function requestJson(url, { method = "GET", headers = {}, body, sec
       headers: { "User-Agent": USER_AGENT, Accept: "application/json", ...headers },
       body,
       signal: AbortSignal.timeout(10_000),
+      ...(redirect ? { redirect } : {}),
     });
   } catch (err) {
     const reason = err?.name === "TimeoutError" ? "timed out" : (err?.message ?? String(err));

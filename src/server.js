@@ -16,8 +16,10 @@ import {
   eventsWithCoords,
   listSocialPosts,
   hideSocialPost,
+  upsertSocialPost,
 } from "./db.js";
-import { PLATFORMS } from "./importers/social/normalise.js";
+import { PLATFORMS, normalisePost } from "./importers/social/normalise.js";
+import { resolvePastedUrl } from "./importers/social/oembed.js";
 import { renderMarkdown } from "./markdown.js";
 import {
   homePage,
@@ -122,16 +124,61 @@ app.post("/events", async (req, reply) => {
   reply.redirect(`/events/${slug}`);
 });
 
+// One render path for the event page, shared by GET and the paste form's
+// 400 re-render so both show the same attendees and social posts.
+function renderEventPage(req, event, { error = null } = {}) {
+  const checkedIn = req.user ? hasCheckedIn(event.slug, req.user.token) : false;
+  return eventPage({
+    user: req.user,
+    event,
+    attendees: attendees(event.slug),
+    checkedIn,
+    socialPosts: listSocialPosts({ eventSlug: event.slug, limit: 20 }),
+    error,
+  });
+}
+
 app.get("/events/:slug", async (req, reply) => {
   const event = getEvent(req.params.slug);
   if (!event) {
     reply.code(404).type("text/html").send("<h1>Not found</h1>");
     return;
   }
-  const checkedIn = req.user ? hasCheckedIn(event.slug, req.user.token) : false;
-  reply
-    .type("text/html")
-    .send(eventPage({ user: req.user, event, attendees: attendees(event.slug), checkedIn }));
+  reply.type("text/html").send(renderEventPage(req, event));
+});
+
+const PASTE_URL_MAX = 2048;
+const UNSUPPORTED_LINK = "That link isn't from a supported platform.";
+
+// Paste a post URL (ADR 0003, Option C). This makes one outbound oEmbed call
+// per user action, never on a page view, which keeps to ADR 0002/0003's rule
+// that no external call sits on an ordinary page-view path. If oEmbed fails
+// the post is still stored as a link-only card (see oembed.js).
+app.post("/events/:slug/social", async (req, reply) => {
+  if (!req.user) {
+    reply.redirect("/login");
+    return;
+  }
+  const event = getEvent(req.params.slug);
+  if (!event) {
+    reply.code(404).type("text/html").send("<h1>Not found</h1>");
+    return;
+  }
+  const rejectLink = () =>
+    reply.code(400).type("text/html").send(renderEventPage(req, event, { error: UNSUPPORTED_LINK }));
+
+  const raw = typeof req.body?.url === "string" ? req.body.url.trim() : "";
+  // Over-long input is rejected, not truncated: a cut-off URL is a different URL.
+  if (!raw || raw.length > PASTE_URL_MAX) return rejectLink();
+
+  const { post, error } = await resolvePastedUrl(raw);
+  if (!post) return rejectLink();
+  if (error) req.log.info({ platform: post.platform, reason: error }, "pasted post stored link-only");
+
+  const clean = normalisePost({ ...post, event_slug: event.slug });
+  if (!clean) return rejectLink();
+  upsertSocialPost(clean);
+  reply.redirect(`/events/${event.slug}`);
 });
 
 app.get("/events/:slug/pay", async (req, reply) => {
