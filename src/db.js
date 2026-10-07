@@ -257,6 +257,27 @@ export function lookupPlaceCoords(venueOrAddressText) {
   return row ? { lat: row.lat, lng: row.lng } : null;
 }
 
+// Geocache reads/writes for src/importers/geocode.js. A row with NULL
+// lat/lng is a cached "looked up, nothing found" result — distinct from no
+// row at all (never looked up) — so a failed Nominatim lookup is never
+// retried on every import run.
+export function getGeocache(query) {
+  const key = String(query ?? "").trim().toLowerCase();
+  if (!key) return undefined;
+  const row = db.prepare("SELECT lat, lng FROM geocache WHERE query = ?").get(key);
+  if (!row) return undefined;
+  return { lat: row.lat, lng: row.lng };
+}
+
+export function setGeocache(query, lat, lng) {
+  const key = String(query ?? "").trim().toLowerCase();
+  if (!key) return;
+  db.prepare(
+    `INSERT INTO geocache (query, lat, lng) VALUES (?, ?, ?)
+     ON CONFLICT(query) DO UPDATE SET lat = excluded.lat, lng = excluded.lng, resolved_at = datetime('now')`,
+  ).run(key, lat ?? null, lng ?? null);
+}
+
 // Inserts or updates an event imported from an external source (ICS,
 // Ticketmaster, etc.), keyed by (source_id, external_id) via the partial
 // unique index created above. The slug is generated once, on first insert;

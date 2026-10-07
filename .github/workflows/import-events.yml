@@ -1,0 +1,30 @@
+name: import-events
+
+# Runs the ICS (and, once step 5 lands, Ticketmaster) import on a schedule
+# against the already-running deployed machine, reusing its volume - not an
+# in-process cron, since the 256 MB scale-to-zero Fly machine may be
+# stopped between requests. Off-the-hour minutes (17/47), per course
+# convention of avoiding :00/:30 where many scheduled jobs pile up.
+#
+# Assumes at least one `sources` row with kind='ics' exists in production;
+# seeding a real feed URL is a manual/future step (no feed has been
+# confirmed yet, per the plan's "Open items") - with no such row, the
+# script runs and simply imports nothing.
+on:
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+      - name: Run the import script on the deployed machine
+        run: flyctl ssh console -a ${{ github.event.repository.name }} -C "node src/scripts/import-events.js"
