@@ -6,6 +6,7 @@
 import { db, findOrCreateSource } from "../db.js";
 import { importIcsSource } from "../importers/ics.js";
 import { importTicketmasterEvents } from "../importers/ticketmaster.js";
+import { runSocialImport } from "../importers/social/index.js";
 
 async function main() {
   const sources = db.prepare("SELECT * FROM sources WHERE kind = 'ics'").all();
@@ -29,6 +30,10 @@ async function main() {
   } else {
     console.log("[ticketmaster] skipped: TICKETMASTER_API_KEY not configured");
   }
+
+  // Social posts (ADR 0003). Each query is skipped cleanly when its
+  // platform's credentials are missing.
+  await runSocialImport();
 }
 
 await main();
