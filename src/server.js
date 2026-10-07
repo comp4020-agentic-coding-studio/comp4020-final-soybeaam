@@ -14,9 +14,21 @@ import {
   CATEGORIES,
   lookupPlaceCoords,
   eventsWithCoords,
+  listSocialPosts,
+  hideSocialPost,
 } from "./db.js";
+import { PLATFORMS } from "./importers/social/normalise.js";
 import { renderMarkdown } from "./markdown.js";
-import { homePage, loginPage, newEventPage, eventPage, payPage, readmePage, mapPage } from "./views.js";
+import {
+  homePage,
+  loginPage,
+  newEventPage,
+  eventPage,
+  payPage,
+  readmePage,
+  mapPage,
+  socialPage,
+} from "./views.js";
 
 const app = Fastify({ logger: true });
 
@@ -169,6 +181,35 @@ app.get("/api/events/map", async (req, reply) => {
     venue: event.venue_name ?? event.location,
   }));
   reply.send(events);
+});
+
+// Social feed (ADR 0003). Reads only from the DB: posts arrive out of band
+// via the import script, never by calling a platform API on a page view.
+app.get("/social", async (req, reply) => {
+  const requested = typeof req.query.platform === "string" ? req.query.platform : undefined;
+  // Unknown platforms are ignored (shown as "All platforms"), not an error.
+  const platform = requested && PLATFORMS.includes(requested) ? requested : undefined;
+  reply.type("text/html").send(
+    socialPage({
+      user: req.user,
+      posts: listSocialPosts({ platform }),
+      platform,
+      platforms: PLATFORMS,
+    }),
+  );
+});
+
+app.post("/social/:id/hide", async (req, reply) => {
+  if (!req.user) {
+    reply.redirect("/login");
+    return;
+  }
+  if (!/^\d+$/.test(req.params.id)) {
+    reply.code(404).type("text/html").send("<h1>Not found</h1>");
+    return;
+  }
+  hideSocialPost(Number(req.params.id));
+  reply.redirect("/social");
 });
 
 app.get("/readme/", async (req, reply) => {

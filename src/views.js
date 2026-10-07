@@ -1,6 +1,11 @@
 const escape = (s = "") =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+// escape() leaves quotes alone, which is fine for element text but not for a
+// value inside a quoted attribute. Social posts carry third-party URLs, so
+// their attributes go through this instead.
+const escapeAttr = (s = "") => escape(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
 // Leaflet/markercluster are only needed on the map page — loading them on
 // every page would cost five extra network requests on pages that never
 // touch a map, which works against this app's efficiency goal. `layout()`
@@ -26,6 +31,7 @@ function layout({ title, user, body, extraHead = "" }) {
       <nav>
         <a class="brand" href="/">Quad</a>
         <a href="/map">Map</a>
+        <a href="/social">Social</a>
         <span class="spacer"></span>
         ${
           user
@@ -309,6 +315,111 @@ export function mapPage({ user }) {
             });
         })();
       </script>
+    `,
+  });
+}
+
+// --- Social feed (ADR 0003) ---
+
+function platformLabel(platform) {
+  if (platform === "x") return "X";
+  if (platform === "youtube") return "YouTube";
+  const s = String(platform ?? "");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Readable date for a stored ISO timestamp, or null if it doesn't parse, so
+// a card never prints "Invalid Date".
+function socialTime(iso) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString("en-AU", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Australia/Sydney",
+  });
+}
+
+// Renders only the parts a post actually has (ADR 0003 frontend rules). The
+// permalink is required, so the card always has at least a badge and a
+// "View on" link.
+export function socialCard(post, { user } = {}) {
+  const label = platformLabel(post.platform);
+  const name = post.author_name || post.author_handle || "Unknown author";
+  const nameHtml = post.author_url
+    ? `<a href="${escapeAttr(post.author_url)}" rel="noopener noreferrer" target="_blank">${escape(name)}</a>`
+    : escape(name);
+  const handle =
+    post.author_name && post.author_handle && post.author_handle !== post.author_name
+      ? ` <span class="social-handle">@${escape(String(post.author_handle).replace(/^@/, ""))}</span>`
+      : "";
+
+  const when = socialTime(post.posted_at);
+  const timeLine = when
+    ? `<p class="card-meta"><time datetime="${escapeAttr(post.posted_at)}">${escape(when)}</time></p>`
+    : "";
+
+  const media = post.media_url
+    ? `<div class="social-media">
+        <img src="${escapeAttr(post.media_url)}" loading="lazy" width="400" height="300" alt="" onerror="this.remove()" />
+        ${post.media_type === "video" ? `<span class="video-label">Video</span>` : ""}
+      </div>`
+    : "";
+
+  const text = post.text ? `<p class="social-text">${escape(post.text)}</p>` : "";
+
+  const hide = user
+    ? `<form class="social-hide" method="post" action="/social/${escapeAttr(post.id)}/hide">
+        <button type="submit">Hide</button>
+      </form>`
+    : "";
+
+  return `<article class="social-card">
+    ${media}
+    <div class="card-body">
+      <span class="platform-badge">${escape(label)}</span>
+      <p class="social-author">${nameHtml}${handle}</p>
+      ${timeLine}
+      ${text}
+      <div class="social-actions">
+        <a href="${escapeAttr(post.permalink)}" rel="noopener noreferrer" target="_blank">View on ${escape(label)}</a>
+        ${hide}
+      </div>
+    </div>
+  </article>`;
+}
+
+export function socialPage({ user, posts, platform, platforms }) {
+  const option = (value, text) =>
+    `<option value="${escapeAttr(value)}" ${(platform || "") === value ? "selected" : ""}>${escape(text)}</option>`;
+
+  const list = posts.length
+    ? `<ul class="social-grid">
+        ${posts.map((p) => `<li class="event-card-item">${socialCard(p, { user })}</li>`).join("\n")}
+      </ul>`
+    : `<p>No posts have been collected yet. Posts arrive here when the social import runs.</p>`;
+
+  return layout({
+    title: "Quad — social",
+    user,
+    body: `
+      <h1>Social</h1>
+      <form method="get" action="/social" id="social-filters" class="social-filters">
+        <label>Platform
+          <select name="platform">
+            ${option("", "All platforms")}
+            ${platforms.map((p) => option(p, platformLabel(p))).join("\n")}
+          </select>
+        </label>
+        <noscript><button type="submit">Apply</button></noscript>
+      </form>
+      <script>
+        // Progressive enhancement only: without JS the noscript submit button
+        // above still works, since this is a plain GET form.
+        document.getElementById("social-filters").addEventListener("change", (e) => e.target.form.requestSubmit());
+      </script>
+      ${list}
     `,
   });
 }

@@ -59,6 +59,40 @@ db.exec(`
     lat REAL NOT NULL,
     lng REAL NOT NULL
   );
+
+  -- Social aggregator (ADR 0003). Queries are data, not code: each row is one
+  -- (platform, kind, value) search the importer runs. Posts are upserted on
+  -- (platform, external_id), and hidden_at is set by the hide button.
+  CREATE TABLE IF NOT EXISTS social_queries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    value TEXT NOT NULL,
+    event_slug TEXT REFERENCES events(slug),
+    last_run_at TEXT,
+    last_error TEXT,
+    UNIQUE (platform, kind, value)
+  );
+
+  CREATE TABLE IF NOT EXISTS social_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    query_id INTEGER REFERENCES social_queries(id),
+    event_slug TEXT REFERENCES events(slug),
+    author_name TEXT,
+    author_handle TEXT,
+    author_url TEXT,
+    text TEXT,
+    media_url TEXT,
+    media_type TEXT,
+    permalink TEXT NOT NULL,
+    posted_at TEXT,
+    embed_html TEXT,
+    hidden_at TEXT,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (platform, external_id)
+  );
 `);
 
 // Older databases (the local ./data dir, or the Fly volume from before this
@@ -116,6 +150,10 @@ db.exec(`
     ON events(source_id, external_id) WHERE external_id IS NOT NULL;
   CREATE INDEX IF NOT EXISTS idx_events_latlng
     ON events(lat, lng) WHERE lat IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS idx_social_posts_posted
+    ON social_posts(posted_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_social_posts_event
+    ON social_posts(event_slug) WHERE event_slug IS NOT NULL;
 `);
 
 function slugify(title) {
@@ -370,6 +408,102 @@ export function eventsWithCoords() {
        FROM events WHERE lat IS NOT NULL`,
     )
     .all();
+}
+
+// --- Social aggregator (ADR 0003) ---
+
+// Takes a post already cleaned by src/importers/social/normalise.js. Keyed
+// on the plain UNIQUE (platform, external_id), so a re-import updates in
+// place. hidden_at is deliberately absent from the UPDATE SET: a re-import
+// must never un-hide a post. event_slug/query_id keep their existing value
+// when the incoming one is NULL, so a later untargeted query can't detach a
+// post from its event.
+export function upsertSocialPost(post) {
+  db.prepare(
+    `INSERT INTO social_posts
+       (platform, external_id, query_id, event_slug, author_name, author_handle, author_url,
+        text, media_url, media_type, permalink, posted_at, embed_html)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(platform, external_id) DO UPDATE SET
+       query_id = COALESCE(excluded.query_id, social_posts.query_id),
+       event_slug = COALESCE(excluded.event_slug, social_posts.event_slug),
+       author_name = excluded.author_name,
+       author_handle = excluded.author_handle,
+       author_url = excluded.author_url,
+       text = excluded.text,
+       media_url = excluded.media_url,
+       media_type = excluded.media_type,
+       permalink = excluded.permalink,
+       posted_at = excluded.posted_at,
+       embed_html = excluded.embed_html,
+       fetched_at = datetime('now')`,
+  ).run(
+    post.platform,
+    post.external_id,
+    post.query_id ?? null,
+    post.event_slug ?? null,
+    post.author_name ?? null,
+    post.author_handle ?? null,
+    post.author_url ?? null,
+    post.text ?? null,
+    post.media_url ?? null,
+    post.media_type ?? null,
+    post.permalink,
+    post.posted_at ?? null,
+    post.embed_html ?? null,
+  );
+  return db
+    .prepare("SELECT * FROM social_posts WHERE platform = ? AND external_id = ?")
+    .get(post.platform, post.external_id);
+}
+
+// Visible posts only, newest first. posted_at is ISO ("...T...Z") and
+// fetched_at is SQLite's "YYYY-MM-DD HH:MM:SS", which don't compare
+// correctly as strings, so both go through datetime() before ordering.
+export function listSocialPosts({ platform, eventSlug, limit = 50 } = {}) {
+  const n = Number(limit);
+  const capped = Number.isFinite(n) ? Math.min(200, Math.max(1, Math.trunc(n))) : 50;
+  let sql = "SELECT * FROM social_posts WHERE hidden_at IS NULL";
+  const params = [];
+  if (platform) {
+    sql += " AND platform = ?";
+    params.push(platform);
+  }
+  if (eventSlug) {
+    sql += " AND event_slug = ?";
+    params.push(eventSlug);
+  }
+  sql += " ORDER BY datetime(COALESCE(posted_at, fetched_at)) DESC, id DESC LIMIT ?";
+  params.push(capped);
+  return db.prepare(sql).all(...params);
+}
+
+export function hideSocialPost(id) {
+  const result = db
+    .prepare("UPDATE social_posts SET hidden_at = datetime('now') WHERE id = ? AND hidden_at IS NULL")
+    .run(id);
+  return result.changes > 0;
+}
+
+export function listSocialQueries() {
+  return db.prepare("SELECT * FROM social_queries ORDER BY id ASC").all();
+}
+
+export function addSocialQuery({ platform, kind, value, event_slug }) {
+  db.prepare(
+    "INSERT OR IGNORE INTO social_queries (platform, kind, value, event_slug) VALUES (?, ?, ?, ?)",
+  ).run(platform, kind, value, event_slug ?? null);
+  return db
+    .prepare("SELECT * FROM social_queries WHERE platform = ? AND kind = ? AND value = ?")
+    .get(platform, kind, value);
+}
+
+// error: falsy on success (clears last_error), otherwise an Error or string.
+export function recordSocialQueryRun(id, error) {
+  const message = error ? String(error instanceof Error ? error.message : error) : null;
+  db.prepare(
+    "UPDATE social_queries SET last_run_at = datetime('now'), last_error = ? WHERE id = ?",
+  ).run(message, id);
 }
 
 export function checkIn(eventSlug, userToken) {
