@@ -14,19 +14,9 @@ import {
   CATEGORIES,
   lookupPlaceCoords,
   eventsWithCoords,
-  listHolidays,
 } from "./db.js";
 import { renderMarkdown } from "./markdown.js";
-import {
-  homePage,
-  loginPage,
-  newEventPage,
-  eventPage,
-  payPage,
-  readmePage,
-  mapPage,
-  holidaysPage,
-} from "./views.js";
+import { homePage, loginPage, newEventPage, eventPage, payPage, readmePage, mapPage } from "./views.js";
 
 const app = Fastify({ logger: true });
 
@@ -179,11 +169,6 @@ app.get("/api/events/map", async (req, reply) => {
     venue: event.venue_name ?? event.location,
   }));
   reply.send(events);
-});
-
-app.get("/holidays", async (req, reply) => {
-  const date = typeof req.query.date === "string" && req.query.date ? req.query.date : undefined;
-  reply.type("text/html").send(holidaysPage({ user: req.user, holidays: listHolidays({ date }), date }));
 });
 
 app.get("/readme/", async (req, reply) => {
