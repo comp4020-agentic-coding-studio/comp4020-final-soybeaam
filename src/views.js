@@ -118,6 +118,10 @@ function sidebar({ sort, category, categories }) {
       </section>
       <noscript><button type="submit">Apply</button></noscript>
     </form>
+    <section class="filter-group">
+      <h2>Holidays</h2>
+      <a href="/holidays" class="filter-option">Public holidays</a>
+    </section>
   </aside>
   <script>
     // Progressive enhancement only: without JS the noscript submit button
@@ -309,6 +313,48 @@ export function mapPage({ user }) {
             });
         })();
       </script>
+    `,
+  });
+}
+
+// Plain read-only list of imported holiday/external-feed events — no event
+// page, no check-in, so titles are text, not links (nothing to redirect to).
+// A GET-form date filter mirrors the sidebar's auto-submit pattern.
+export function holidaysPage({ user, holidays, date }) {
+  const items = holidays.length
+    ? `<ul class="holiday-list">
+        ${holidays
+          .map((h) => {
+            const when = h.starts_at ?? h.event_date;
+            const whereText = h.venue_name ?? h.location;
+            return `<li class="holiday-item">
+              <h3>${escape(h.title)}</h3>
+              <p class="meta">${when ? escape(when) : "Date unknown"}${
+                whereText ? ` — ${escape(whereText)}` : ""
+              }${h.category ? ` · ${escape(h.category)}` : ""}</p>
+              ${h.address ? `<p>${escape(h.address)}</p>` : ""}
+              ${h.description ? `<p>${escape(h.description)}</p>` : ""}
+              ${h.url ? `<p><a href="${escape(h.url)}">More info</a></p>` : ""}
+            </li>`;
+          })
+          .join("\n")}
+      </ul>`
+    : `<p>No holidays match this date.</p>`;
+
+  return layout({
+    title: "Holidays",
+    user,
+    body: `
+      <h1>Holidays</h1>
+      <form method="get" action="/holidays" id="holiday-filter" class="holiday-filter">
+        <label>Date <input type="date" name="date" value="${escape(date ?? "")}" /></label>
+        <noscript><button type="submit">Apply</button></noscript>
+        ${date ? `<a href="/holidays">Clear</a>` : ""}
+      </form>
+      <script>
+        document.getElementById("holiday-filter").addEventListener("change", (e) => e.target.form.requestSubmit());
+      </script>
+      ${items}
     `,
   });
 }

@@ -187,6 +187,14 @@ export function userByToken(token) {
   return db.prepare("SELECT * FROM users WHERE token = ?").get(token);
 }
 
+// Events whose source is an imported holiday calendar (any `sources` row of
+// kind 'ics' or 'ticketmaster' is treated as a holiday/external feed, not a
+// hosted event) are excluded from the main grid/map and get their own
+// list+filter instead — see `listHolidays` and `NON_HOLIDAY_SOURCE`, kept in
+// one place so the main-list and map queries agree on the split.
+const NON_HOLIDAY_SOURCE = `events.source_id IN (SELECT id FROM sources WHERE kind = 'manual')`;
+const HOLIDAY_SOURCE = `events.source_id IN (SELECT id FROM sources WHERE kind != 'manual')`;
+
 // sort: "name_asc" | "name_desc" | "soonest" | "latest" (default: latest-created, as before)
 // category: exact match against events.category, or falsy for no filter
 export function listEvents({ sort, category } = {}) {
@@ -194,10 +202,11 @@ export function listEvents({ sort, category } = {}) {
   // the host's session token and must not be rendered).
   let sql = `SELECT events.*, users.email AS host_email,
               (SELECT COUNT(*) FROM checkins WHERE checkins.event_slug = events.slug) AS attendee_count
-       FROM events LEFT JOIN users ON users.token = events.created_by`;
+       FROM events LEFT JOIN users ON users.token = events.created_by
+       WHERE ${NON_HOLIDAY_SOURCE}`;
   const params = [];
   if (category) {
-    sql += ` WHERE events.category = ?`;
+    sql += ` AND events.category = ?`;
     params.push(category);
   }
   sql +=
@@ -362,14 +371,34 @@ export function upsertImportedEvent({
 
 // Events with known coordinates, for the /map page. Selects only what the
 // map needs (not events.*), relying on idx_events_latlng via the same
-// WHERE lat IS NOT NULL predicate.
+// WHERE lat IS NOT NULL predicate. Holiday-feed events are excluded (see
+// listEvents) so the map isn't a wall of regional public holiday pins.
 export function eventsWithCoords() {
   return db
     .prepare(
       `SELECT slug, title, lat, lng, starts_at, event_date, venue_name, location
-       FROM events WHERE lat IS NOT NULL`,
+       FROM events WHERE lat IS NOT NULL AND ${NON_HOLIDAY_SOURCE}`,
     )
     .all();
+}
+
+// Imported holiday/external-feed events, newest-starting first. date (an
+// exact "YYYY-MM-DD" string) filters to events whose starts_at or
+// event_date falls on that day; omit it to list everything. These are
+// read-only, informational rows — no check-in, no event page, so this
+// returns everything a plain list view needs directly (no attendee_count,
+// no host join).
+export function listHolidays({ date } = {}) {
+  let sql = `SELECT slug, title, starts_at, ends_at, event_date, venue_name,
+              location, address, description, url, category
+       FROM events WHERE ${HOLIDAY_SOURCE}`;
+  const params = [];
+  if (date) {
+    sql += ` AND (date(starts_at) = date(?) OR date(event_date) = date(?))`;
+    params.push(date, date);
+  }
+  sql += ` ORDER BY COALESCE(starts_at, event_date) ASC`;
+  return db.prepare(sql).all(...params);
 }
 
 export function checkIn(eventSlug, userToken) {
