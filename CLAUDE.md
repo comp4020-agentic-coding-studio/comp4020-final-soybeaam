@@ -16,4 +16,4 @@ It is IMPORTANT that you follow the rules setout by HANDBOOK.md
 
 # Documentation
 
-In docs/conversation.md, keep track of the user's prompts and Claudes answers with a timestamp, make sure to summarise long answers/prompts and create a new conversation_{identifier}.md every new session. 
+In docs/conversation.md, keep track of the user's prompts and Claudes answers with a timestamp, make sure to summarise long answers/prompts and create a new conversation_{identifier}.md every new session and use a cheap (sonnet or haikyuu model), low effort model for this task.
