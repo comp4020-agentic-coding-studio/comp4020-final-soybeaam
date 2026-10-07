@@ -38,6 +38,27 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (event_slug, user_token)
   );
+
+  CREATE TABLE IF NOT EXISTS sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    name TEXT NOT NULL,
+    url TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS geocache (
+    query TEXT PRIMARY KEY,
+    lat REAL,
+    lng REAL,
+    resolved_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS places (
+    name TEXT PRIMARY KEY,
+    lat REAL NOT NULL,
+    lng REAL NOT NULL
+  );
 `);
 
 // Older databases (the local ./data dir, or the Fly volume from before this
@@ -54,6 +75,48 @@ if (!existingColumns.has("category")) {
 if (!existingColumns.has("price_cents")) {
   db.exec("ALTER TABLE events ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0");
 }
+if (!existingColumns.has("starts_at")) {
+  db.exec("ALTER TABLE events ADD COLUMN starts_at TEXT");
+}
+if (!existingColumns.has("ends_at")) {
+  db.exec("ALTER TABLE events ADD COLUMN ends_at TEXT");
+}
+if (!existingColumns.has("venue_name")) {
+  db.exec("ALTER TABLE events ADD COLUMN venue_name TEXT");
+}
+if (!existingColumns.has("address")) {
+  db.exec("ALTER TABLE events ADD COLUMN address TEXT");
+}
+if (!existingColumns.has("lat")) {
+  db.exec("ALTER TABLE events ADD COLUMN lat REAL");
+}
+if (!existingColumns.has("lng")) {
+  db.exec("ALTER TABLE events ADD COLUMN lng REAL");
+}
+if (!existingColumns.has("description")) {
+  db.exec("ALTER TABLE events ADD COLUMN description TEXT");
+}
+if (!existingColumns.has("url")) {
+  db.exec("ALTER TABLE events ADD COLUMN url TEXT");
+}
+if (!existingColumns.has("source_id")) {
+  db.exec("ALTER TABLE events ADD COLUMN source_id INTEGER");
+}
+if (!existingColumns.has("external_id")) {
+  db.exec("ALTER TABLE events ADD COLUMN external_id TEXT");
+}
+if (!existingColumns.has("updated_at")) {
+  db.exec("ALTER TABLE events ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))");
+}
+
+// Partial unique index backing upsertImportedEvent's ON CONFLICT target, and
+// a plain index to support map-bounds queries once lat/lng are populated.
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_events_source_external
+    ON events(source_id, external_id) WHERE external_id IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS idx_events_latlng
+    ON events(lat, lng) WHERE lat IS NOT NULL;
+`);
 
 function slugify(title) {
   const base = title
@@ -71,12 +134,23 @@ function slugify(title) {
 // yet has something to check in to immediately.
 const count = db.prepare("SELECT COUNT(*) AS n FROM events").get();
 if (count.n === 0) {
+  // Seed source: manual entries (including these seeded events) are
+  // attributed to source_id=1 so imported events can be told apart later.
+  db.prepare("INSERT OR IGNORE INTO sources (id, kind, name) VALUES (1, 'manual', 'Quad')").run();
+
+  // Approximate real-world coordinates for the three seeded ANU venues
+  // (Canberra campus), plausible but not survey-precise.
+  const places = db.prepare("INSERT OR IGNORE INTO places (name, lat, lng) VALUES (?, ?, ?)");
+  places.run("Union Court", -35.2778, 149.1185);
+  places.run("Marie Reay 4.03", -35.2772, 149.1202);
+  places.run("R.G. Menzies Library", -35.2782, 149.1197);
+
   const insert = db.prepare(
-    "INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents, source_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
   );
   // welcome-mixer stays free ($0): spec/events.test.ts checks in to it
   // directly, with no payment step, so it must never carry a price.
-  insert.run("welcome-mixer", "Welcome mixer", "2026-10-10", "Union Court", "ANU", "Social", 0);
+  insert.run("welcome-mixer", "Welcome mixer", "2026-10-10", "Union Court", "ANU", "Social", 0, 1);
   insert.run(
     "club-trivia-night",
     "Club trivia night",
@@ -85,8 +159,9 @@ if (count.n === 0) {
     "Trivia Club",
     "Quiz/Trivia",
     1500,
+    1,
   );
-  insert.run("study-sprint", "Study sprint", "2026-10-20", "R.G. Menzies Library", null, "Workshop", 0);
+  insert.run("study-sprint", "Study sprint", "2026-10-20", "R.G. Menzies Library", null, "Workshop", 0, 1);
 }
 
 export const CATEGORIES = ["Social", "Workshop", "Quiz/Trivia", "Sport", "Party", "Other"];
@@ -130,11 +205,24 @@ export function getEvent(slug) {
   return db.prepare("SELECT * FROM events WHERE slug = ?").get(slug);
 }
 
-export function createEvent({ title, event_date, location, affiliation, category, price_cents, created_by }) {
+export function createEvent({
+  title,
+  event_date,
+  location,
+  affiliation,
+  category,
+  price_cents,
+  created_by,
+  venue_name,
+  address,
+  description,
+  url,
+  source_id,
+}) {
   const slug = slugify(title);
   db.prepare(
-    `INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents, created_by, venue_name, address, description, url, source_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     slug,
     title,
@@ -144,6 +232,84 @@ export function createEvent({ title, event_date, location, affiliation, category
     category || null,
     Number(price_cents) || 0,
     created_by || null,
+    venue_name || null,
+    address || null,
+    description || null,
+    url || null,
+    source_id ?? 1,
+  );
+  return slug;
+}
+
+// Inserts or updates an event imported from an external source (ICS,
+// Ticketmaster, etc.), keyed by (source_id, external_id) via the partial
+// unique index created above. The slug is generated once, on first insert;
+// an update-by-conflict must never change it, so slug is intentionally left
+// out of the UPDATE SET below.
+export function upsertImportedEvent({
+  source_id,
+  external_id,
+  title,
+  starts_at,
+  ends_at,
+  venue_name,
+  address,
+  lat,
+  lng,
+  description,
+  url,
+  category,
+  price_cents,
+}) {
+  const existing = db
+    .prepare("SELECT slug FROM events WHERE source_id = ? AND external_id = ?")
+    .get(source_id, external_id);
+
+  if (existing) {
+    db.prepare(
+      `UPDATE events SET
+         title = ?, starts_at = ?, ends_at = ?, venue_name = ?, address = ?,
+         lat = ?, lng = ?, description = ?, url = ?, category = ?, price_cents = ?,
+         updated_at = datetime('now')
+       WHERE source_id = ? AND external_id = ?`,
+    ).run(
+      title,
+      starts_at || null,
+      ends_at || null,
+      venue_name || null,
+      address || null,
+      lat ?? null,
+      lng ?? null,
+      description || null,
+      url || null,
+      category || null,
+      Number(price_cents) || 0,
+      source_id,
+      external_id,
+    );
+    return existing.slug;
+  }
+
+  const slug = slugify(title);
+  db.prepare(
+    `INSERT INTO events
+       (slug, title, starts_at, ends_at, venue_name, address, lat, lng, description, url, category, price_cents, source_id, external_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    slug,
+    title,
+    starts_at || null,
+    ends_at || null,
+    venue_name || null,
+    address || null,
+    lat ?? null,
+    lng ?? null,
+    description || null,
+    url || null,
+    category || null,
+    Number(price_cents) || 0,
+    source_id,
+    external_id,
   );
   return slug;
 }
