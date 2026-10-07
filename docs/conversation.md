@@ -36,12 +36,6 @@ A summary of this Claude Code session, not a verbatim transcript.
   directed.
 - `pnpm check` was green as the baseline.
 
-## Housekeeping
-- Updated the `comp4020` plugin from 0.14.22 to 0.14.27 (needs a restart).
-- Weekly proxy budget: $21.23 of $100.00 spent, resets Thu 8 Oct 9:00 am
-  Canberra.
-- Opened the local dev server at http://localhost:8080/ in the browser.
-
 ## Events sources, map and schema (recommendations only, no code changed)
 - Eventbrite's public search API is, as far as I know, no longer available, and
   scraping breaks its terms. Check their current docs before relying on this.
