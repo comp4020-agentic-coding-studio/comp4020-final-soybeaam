@@ -8,17 +8,13 @@
     "check": "pnpm typecheck && pnpm test",
     "check:evidence": "node scripts/check-evidence.ts",
     "test": "vitest run",
-    "import:events": "node src/scripts/import-events.js",
-    "social:add": "node src/scripts/add-social-query.js",
-    "social:list": "node src/scripts/list-social-queries.js",
     "start": "node --experimental-sqlite src/server.js",
     "dev": "node --experimental-sqlite --watch src/dev.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
     "@fastify/formbody": "^8.0.2",
-    "fastify": "^5.2.1",
-    "node-ical": "^0.27.3"
+    "fastify": "^5.2.1"
   },
   "devDependencies": {
     "@types/jsdom": "^30.0.0",

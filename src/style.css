@@ -156,14 +156,6 @@ h1 {
   display: flex;
 }
 
-.map-container {
-  width: 100%;
-  height: 70vh;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
 .event-card {
   display: flex;
   flex-direction: column;
@@ -310,21 +302,13 @@ label {
   color: var(--muted);
 }
 
-input,
-select,
-textarea {
+input {
   font: inherit;
   padding: 0.5rem;
   /* darker than --line: a 1px form-control border needs ~3:1 contrast
      against the white background (WCAG), and --line alone falls short */
   border: 1px solid #9ca3af;
   border-radius: 8px;
-}
-
-textarea {
-  min-height: 5rem;
-  resize: vertical;
-  max-width: 100%;
 }
 
 .confirmed {
@@ -346,152 +330,4 @@ footer {
   padding: 1rem 1.25rem;
   color: var(--muted);
   font-size: 0.85rem;
-}
-
-/* Social feed (/social). Same auto-fill grid as .event-grid; cards share
-   .event-card's border, radius and shadow. */
-.social-filters {
-  margin-bottom: 1.25rem;
-}
-
-.social-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: 1.25rem;
-  list-style: none;
-  padding: 0;
-  margin: 0 0 2rem;
-}
-
-.social-card {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  background: #ffffff;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.06);
-}
-
-.social-media {
-  position: relative;
-}
-
-/* The img removes itself on a load error; hide what's left (the Video
-   label) so a dead thumbnail leaves no trace. */
-.social-media:not(:has(img)) {
-  display: none;
-}
-
-.social-card img {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: 12px 12px 0 0;
-}
-
-.video-label {
-  position: absolute;
-  bottom: 0.5rem;
-  left: 0.5rem;
-  background: rgba(22, 24, 29, 0.85);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-}
-
-.platform-badge {
-  align-self: flex-start;
-  padding: 0.1rem 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #f9fafb;
-  color: var(--ink);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.social-author {
-  margin: 0.25rem 0 0;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
-.social-handle {
-  color: var(--muted);
-  font-weight: 400;
-  font-size: 0.875rem;
-}
-
-.social-text {
-  white-space: pre-line;
-  overflow-wrap: anywhere;
-  margin: 0.5rem 0 0;
-  font-size: 0.95rem;
-}
-
-.social-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: auto;
-  padding-top: 0.75rem;
-  font-size: 0.875rem;
-}
-
-/* Compact override of the global column form + large accent button. */
-.social-hide {
-  display: inline;
-  max-width: none;
-}
-
-.social-hide button {
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid #9ca3af;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.8rem;
-}
-
-/* "From social media" on an event page: one column of cards (embeds need
-   the width), then the paste-a-link form. */
-.event-social {
-  margin-top: 2rem;
-}
-
-.social-event-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1.25rem;
-  max-width: 36rem;
-}
-
-/* Sandboxed oEmbed frame. Fixed height for post widgets (they can't resize
-   the frame from inside an opaque-origin sandbox); 16:9 for YouTube. */
-.social-embed {
-  display: block;
-  width: 100%;
-  height: 560px;
-  margin-top: 0.75rem;
-  border: 0;
-  border-radius: 8px;
-  background: #f9fafb;
-}
-
-.social-embed--video {
-  height: auto;
-  aspect-ratio: 16 / 9;
-}
-
-.social-paste {
-  max-width: 36rem;
 }

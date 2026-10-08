@@ -1,37 +1,19 @@
 const escape = (s = "") =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// escape() leaves quotes alone, which is fine for element text but not for a
-// value inside a quoted attribute. Social posts carry third-party URLs, so
-// their attributes go through this instead.
-const escapeAttr = (s = "") => escape(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-
-// Leaflet/markercluster are only needed on the map page — loading them on
-// every page would cost five extra network requests on pages that never
-// touch a map, which works against this app's efficiency goal. `layout()`
-// takes an optional `extraHead` string for pages (just mapPage) that need it.
-const LEAFLET_HEAD = `
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>`;
-
-function layout({ title, user, body, extraHead = "" }) {
+function layout({ title, user, body }) {
   return `<!doctype html>
 <html lang="en-AU">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escape(title)}</title>
-    <link rel="stylesheet" href="/style.css" />${extraHead}
+    <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     <header>
       <nav>
         <a class="brand" href="/">Quad</a>
-        <a href="/map">Map</a>
-        <a href="/social">Social</a>
         <span class="spacer"></span>
         ${
           user
@@ -187,8 +169,6 @@ export function newEventPage({ user, categories }) {
         <label>Date <input type="date" name="event_date" /></label>
         <label>Location <input type="text" name="location" /></label>
         <label>Affiliation (university, club) <input type="text" name="affiliation" /></label>
-        <label>Venue <input type="text" name="venue_name" /></label>
-        <label>Address <input type="text" name="address" /></label>
         <label>Category
           <select name="category">
             <option value="">None</option>
@@ -198,8 +178,6 @@ export function newEventPage({ user, categories }) {
         <label>Price (0 = free)
           <input type="number" name="price" min="0" step="0.01" value="0" />
         </label>
-        <label>Description <textarea name="description" rows="4"></textarea></label>
-        <label>More info URL <input type="url" name="url" /></label>
         <button type="submit">Create event</button>
       </form>
       <p class="meta">Prices are for testing the checkout step only — no real
@@ -208,33 +186,7 @@ export function newEventPage({ user, categories }) {
   });
 }
 
-// "From social media" on an event page: its linked posts (embeds allowed
-// here, unlike the feed), then the paste-a-link form (ADR 0003 Option C).
-function eventSocialSection({ user, event, socialPosts, error }) {
-  const list = socialPosts.length
-    ? `<ul class="social-event-list">
-        ${socialPosts.map((p) => `<li>${socialEmbedCard(p, { user })}</li>`).join("\n")}
-      </ul>`
-    : "";
-  const errorLine = error ? `<p class="error" role="alert">${escape(error)}</p>` : "";
-  const form = user
-    ? `<form class="social-paste" method="post" action="/events/${escapeAttr(event.slug)}/social">
-        <label>Add a post
-          <input type="url" name="url" required maxlength="2048"
-            placeholder="Paste a post link (YouTube, X, Reddit, Bluesky, Mastodon, Instagram…)" />
-        </label>
-        <button type="submit">Add post</button>
-      </form>`
-    : `<p><a href="/login">Log in to add a post</a></p>`;
-  return `<section class="event-social" id="social">
-      <h2>From social media</h2>
-      ${list}
-      ${errorLine}
-      ${form}
-    </section>`;
-}
-
-export function eventPage({ user, event, attendees, checkedIn, socialPosts = [], error = null }) {
+export function eventPage({ user, event, attendees, checkedIn }) {
   const price = event.price_cents ?? 0;
 
   let action;
@@ -252,19 +204,14 @@ export function eventPage({ user, event, attendees, checkedIn, socialPosts = [],
     </form>`;
   }
 
-  const venueLabel = event.venue_name ?? event.location;
-
   return layout({
     title: event.title,
     user,
     body: `
       <h1>${escape(event.title)}</h1>
-      <p class="meta">${escape(event.event_date ?? "date tbc")} · ${escape(venueLabel ?? "location tbc")}${
+      <p class="meta">${escape(event.event_date ?? "date tbc")} · ${escape(event.location ?? "location tbc")}${
         event.affiliation ? ` · ${escape(event.affiliation)}` : ""
       }${event.category ? ` · ${escape(event.category)}` : ""} · ${escape(priceLabel(price))}</p>
-      ${event.address ? `<p class="meta">${escape(event.address)}</p>` : ""}
-      ${event.description ? `<p>${escape(event.description)}</p>` : ""}
-      ${event.url ? `<p><a href="${escape(event.url)}">More info</a></p>` : ""}
 
       ${action}
 
@@ -276,8 +223,6 @@ export function eventPage({ user, event, attendees, checkedIn, socialPosts = [],
               .join("\n")}</ul>`
           : `<p>Nobody yet — be the first.</p>`
       }
-
-      ${eventSocialSection({ user, event, socialPosts: socialPosts ?? [], error })}
     `,
   });
 }
@@ -301,182 +246,6 @@ export function payPage({ user, event }) {
         <label>CVC <input type="text" placeholder="123" disabled /></label>
         <button type="submit">Pay ${escape(priceLabel(event.price_cents ?? 0))} (mock) &amp; check in</button>
       </form>
-    `,
-  });
-}
-
-export function mapPage({ user }) {
-  return layout({
-    title: "Map",
-    user,
-    extraHead: LEAFLET_HEAD,
-    body: `
-      <h1>Event map</h1>
-      <div id="map" class="map-container"></div>
-      <script>
-        (function () {
-          var map = L.map("map").setView([-35.2777, 149.1185], 15);
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            maxZoom: 19,
-            attribution: "&copy; OpenStreetMap contributors",
-          }).addTo(map);
-
-          var cluster = L.markerClusterGroup();
-
-          fetch("/api/events/map")
-            .then(function (res) { return res.json(); })
-            .then(function (events) {
-              (events || []).forEach(function (event) {
-                if (typeof event.lat !== "number" || typeof event.lng !== "number") return;
-                var lines = [
-                  '<a href="/events/' + event.slug + '">' + event.title + "</a>",
-                ];
-                if (event.venue) lines.push(event.venue);
-                if (event.when) lines.push(event.when);
-                var marker = L.marker([event.lat, event.lng]).bindPopup(lines.join("<br>"));
-                cluster.addLayer(marker);
-              });
-              map.addLayer(cluster);
-            })
-            .catch(function () {
-              // No markers if the fetch fails — map still renders.
-            });
-        })();
-      </script>
-    `,
-  });
-}
-
-// --- Social feed (ADR 0003) ---
-
-function platformLabel(platform) {
-  if (platform === "x") return "X";
-  if (platform === "youtube") return "YouTube";
-  const s = String(platform ?? "");
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-// Readable date for a stored ISO timestamp, or null if it doesn't parse, so
-// a card never prints "Invalid Date".
-function socialTime(iso) {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString("en-AU", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Australia/Sydney",
-  });
-}
-
-// Renders only the parts a post actually has (ADR 0003 frontend rules). The
-// permalink is required, so the card always has at least a badge and a
-// "View on" link.
-export function socialCard(post, { user } = {}) {
-  return renderSocialCard(post, { user, embed: null });
-}
-
-// The provider's oEmbed html runs in a sandboxed srcdoc iframe: scripts may
-// run (the widgets need them) but, with no allow-same-origin, the frame gets
-// an opaque origin and can't touch this page, its cookies or storage.
-// <base target=_blank> makes links inside it open a new tab.
-function embedFrame(post) {
-  const isVideo = post.platform === "youtube";
-  // YouTube's html is a fixed 200x113 iframe; stretch it to fill the frame.
-  const videoStyle = isVideo
-    ? "<style>html,body{height:100%}iframe{width:100%;height:100%;border:0}</style>"
-    : "";
-  const fullDoc = `<!doctype html><meta charset=utf-8><base target=_blank>${videoStyle}<body style=margin:0>${post.embed_html}`;
-  return `<iframe class="social-embed${isVideo ? " social-embed--video" : ""}" title="${escapeAttr(
-    `${platformLabel(post.platform)} post`,
-  )}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" loading="lazy" srcdoc="${escapeAttr(fullDoc)}"></iframe>`;
-}
-
-// Event-page variant: a post with oEmbed html shows the embed in place of
-// the card's text/media; anything else is a normal card. Never used by the
-// /social feed, which must not load third-party embeds (ADR 0003).
-export function socialEmbedCard(post, { user } = {}) {
-  return post.embed_html
-    ? renderSocialCard(post, { user, embed: embedFrame(post) })
-    : socialCard(post, { user });
-}
-
-function renderSocialCard(post, { user, embed }) {
-  const label = platformLabel(post.platform);
-  const name = post.author_name || post.author_handle || "Unknown author";
-  const nameHtml = post.author_url
-    ? `<a href="${escapeAttr(post.author_url)}" rel="noopener noreferrer" target="_blank">${escape(name)}</a>`
-    : escape(name);
-  const handle =
-    post.author_name && post.author_handle && post.author_handle !== post.author_name
-      ? ` <span class="social-handle">@${escape(String(post.author_handle).replace(/^@/, ""))}</span>`
-      : "";
-
-  const when = socialTime(post.posted_at);
-  const timeLine = when
-    ? `<p class="card-meta"><time datetime="${escapeAttr(post.posted_at)}">${escape(when)}</time></p>`
-    : "";
-
-  const media = post.media_url
-    ? `<div class="social-media">
-        <img src="${escapeAttr(post.media_url)}" loading="lazy" width="400" height="300" alt="" onerror="this.remove()" />
-        ${post.media_type === "video" ? `<span class="video-label">Video</span>` : ""}
-      </div>`
-    : "";
-
-  const text = post.text ? `<p class="social-text">${escape(post.text)}</p>` : "";
-
-  const hide = user
-    ? `<form class="social-hide" method="post" action="/social/${escapeAttr(post.id)}/hide">
-        <button type="submit">Hide</button>
-      </form>`
-    : "";
-
-  return `<article class="social-card">
-    ${embed ? "" : media}
-    <div class="card-body">
-      <span class="platform-badge">${escape(label)}</span>
-      <p class="social-author">${nameHtml}${handle}</p>
-      ${timeLine}
-      ${embed ?? text}
-      <div class="social-actions">
-        <a href="${escapeAttr(post.permalink)}" rel="noopener noreferrer" target="_blank">View on ${escape(label)}</a>
-        ${hide}
-      </div>
-    </div>
-  </article>`;
-}
-
-export function socialPage({ user, posts, platform, platforms }) {
-  const option = (value, text) =>
-    `<option value="${escapeAttr(value)}" ${(platform || "") === value ? "selected" : ""}>${escape(text)}</option>`;
-
-  const list = posts.length
-    ? `<ul class="social-grid">
-        ${posts.map((p) => `<li class="event-card-item">${socialCard(p, { user })}</li>`).join("\n")}
-      </ul>`
-    : `<p>No posts have been collected yet. Posts arrive here when the social import runs.</p>`;
-
-  return layout({
-    title: "Quad — social",
-    user,
-    body: `
-      <h1>Social</h1>
-      <form method="get" action="/social" id="social-filters" class="social-filters">
-        <label>Platform
-          <select name="platform">
-            ${option("", "All platforms")}
-            ${platforms.map((p) => option(p, platformLabel(p))).join("\n")}
-          </select>
-        </label>
-        <noscript><button type="submit">Apply</button></noscript>
-      </form>
-      <script>
-        // Progressive enhancement only: without JS the noscript submit button
-        // above still works, since this is a plain GET form.
-        document.getElementById("social-filters").addEventListener("change", (e) => e.target.form.requestSubmit());
-      </script>
-      ${list}
     `,
   });
 }
