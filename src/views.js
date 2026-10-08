@@ -1,3 +1,5 @@
+import { icon } from "./icons.js";
+
 // Escapes text for HTML bodies AND attribute values (quotes included).
 export const escape = (s = "") =>
   String(s ?? "")
@@ -263,33 +265,11 @@ const CLIENT_SCRIPT = `
 (function () {
   var d = document;
 
-  var toggle = d.querySelector("[data-nav-toggle]");
-  var nav = d.getElementById("site-nav");
-  function closeNav(focus) {
-    if (!nav || !toggle || !nav.classList.contains("is-open")) return;
-    nav.classList.remove("is-open");
-    toggle.setAttribute("aria-expanded", "false");
-    if (focus) toggle.focus();
-  }
-  if (toggle && nav) {
-    toggle.addEventListener("click", function () {
-      var open = nav.classList.toggle("is-open");
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-    });
-  }
-
-  function closeMenus(except, focus) {
-    d.querySelectorAll("details[data-menu][open]").forEach(function (m) {
-      if (m === except) return;
-      m.removeAttribute("open");
-      if (focus) { var s = m.querySelector("summary"); if (s) s.focus(); }
-    });
-  }
+  // The sidebar drawer (Menu button, scrim, Esc) lives in /client.js.
 
   d.addEventListener("click", function (e) {
     var t = e.target;
     if (!(t instanceof Element)) return;
-    closeMenus(t.closest("details[data-menu]"), false);
 
     var opener = t.closest("[data-modal-open]");
     if (opener) {
@@ -300,12 +280,6 @@ const CLIENT_SCRIPT = `
     var closer = t.closest("[data-modal-close]");
     if (closer) { var parent = closer.closest("dialog"); if (parent) parent.close(); return; }
     if (t.tagName === "DIALOG" && t.open) t.close();
-  });
-
-  d.addEventListener("keydown", function (e) {
-    if (e.key !== "Escape") return;
-    closeMenus(null, true);
-    closeNav(true);
   });
 
   d.querySelectorAll("[data-tabs]").forEach(function (root) {
@@ -383,37 +357,78 @@ const CLIENT_SCRIPT = `
 })();
 `;
 
-const NAV_LINKS = [
-  { key: "events", href: "/", label: "Events", auth: false },
-  { key: "host", href: "/events/new", label: "Host", auth: true },
-  { key: "profile", href: "/profile", label: "Profile", auth: true },
-  { key: "settings", href: "/settings", label: "Settings", auth: true },
-  { key: "admin", href: "/admin", label: "Admin", auth: true, admin: true },
+// Sidebar navigation, in two groups. auth: only shown when logged in (those
+// pages redirect to /login anyway). admin: only for admins.
+const NAV_GROUPS = [
+  {
+    label: "Explore",
+    links: [
+      { key: "home", href: "/", label: "Home" },
+      { key: "discover", href: "/discover", label: "Discover" },
+      { key: "map", href: "/map", label: "Event Map" },
+      { key: "communities", href: "/communities", label: "Communities" },
+      { key: "announcements", href: "/announcements", label: "Announcements" },
+      { key: "activity", href: "/activity", label: "Activity" },
+    ],
+  },
+  {
+    label: "You",
+    links: [
+      { key: "my-events", href: "/my-events", label: "My Events", auth: true },
+      { key: "saved", href: "/saved", label: "Saved" },
+      { key: "tickets", href: "/tickets", label: "Tickets", auth: true },
+      { key: "messages", href: "/messages", label: "Messages", auth: true },
+      { key: "notifications", href: "/notifications", label: "Notifications", auth: true, badge: true },
+      { key: "settings", href: "/settings", label: "Settings", auth: true },
+      { key: "admin", href: "/admin", label: "Admin", auth: true, admin: true },
+    ],
+  },
 ];
 
-function userMenu(user) {
+function sidebarNav(user, active) {
+  return NAV_GROUPS.map((g) => {
+    const links = g.links
+      .filter((l) => (!l.auth || user) && (!l.admin || user?.role === "admin"))
+      .map((l) => {
+        const on = active === l.key;
+        return `<li><a class="sb-link${on ? " is-active" : ""}" href="${l.href}"${on ? ` aria-current="page"` : ""}>${icon(
+          l.key,
+          "icon sb-icon",
+        )}<span class="sb-label">${escape(l.label)}</span>${
+          l.badge ? `<span class="sb-badge" data-notif-badge hidden></span>` : ""
+        }</a></li>`;
+      })
+      .join("");
+    return `<p class="sb-group" aria-hidden="true">${escape(g.label)}</p><ul class="sb-nav">${links}</ul>`;
+  }).join("");
+}
+
+// Sidebar footer: who is logged in, a link to their profile and a log out
+// button. Only public fields are used, so no email shows here.
+function sidebarUser(user, active) {
+  if (!user) {
+    return `<div class="sb-foot sb-foot-guest">
+      <p class="sb-guest-text">Log in to check in, chat and host.</p>
+      <a class="button button-block" href="/login">Log in</a>
+    </div>`;
+  }
   const name = displayName(user);
-  return `<details class="user-menu" data-menu>
-    <summary class="user-menu-trigger" aria-label="Account menu for ${escape(name)}">
-      ${avatar(user, "md")}
-      <span class="user-menu-name">${escape(name)}</span>
-      <span class="chevron" aria-hidden="true"></span>
-    </summary>
-    <div class="user-menu-panel">
-      <div class="user-menu-head">
-        ${avatar(user, "lg")}
-        <div class="user-menu-id">
-          <strong>${escape(name)}</strong>
-          <span class="user-menu-email">${escape(user.email || "")}</span>
-        </div>
-      </div>
-      <a class="menu-item" href="/profile">Profile</a>
-      <a class="menu-item" href="/settings">Settings</a>
-      <form class="form-inline" method="post" action="/logout">
-        <button type="submit" class="menu-item menu-item-danger">Log out</button>
-      </form>
-    </div>
-  </details>`;
+  const face = { username: user.username, name: user.name, avatar_url: user.avatar_url, email: user.email };
+  return `<div class="sb-foot">
+    <a class="sb-user${active === "profile" ? " is-active" : ""}" href="/profile"${
+      active === "profile" ? ` aria-current="page"` : ""
+    } title="Your profile">
+      <span class="avatar-wrap">${avatar(face, "md")}<span class="online-dot" aria-hidden="true"></span></span>
+      <span class="sb-user-text">
+        <strong class="sb-user-name">${escape(name)}</strong>
+        ${user.username ? `<span class="sb-user-handle">@${escape(user.username)}</span>` : ""}
+      </span>
+      <span class="visually-hidden">(online, view your profile)</span>
+    </a>
+    <form class="form-inline" method="post" action="/logout">
+      <button type="submit" class="icon-button" aria-label="Log out" title="Log out">${icon("logout")}</button>
+    </form>
+  </div>`;
 }
 
 function siteFooter(user) {
@@ -446,19 +461,41 @@ function siteFooter(user) {
   </footer>`;
 }
 
-// layout({title, user, body, active, bodyClass}): full page shell. active is a nav key:
-// "events" | "host" | "profile" | "settings" | "admin".
-export function layout({ title = "Quad", user = null, body = "", active = "", bodyClass = "" }) {
+// The mini profile dialog. Any link built by personLink() (event-views.js)
+// carries data-person, and client.js fills this dialog from it. layout()
+// renders it once on every page so those links work everywhere.
+function personModal() {
+  return modal({
+    id: "person-modal",
+    title: "Profile",
+    body: `<div class="pm" data-pm>
+      <div class="pm-head"><span class="pm-avatar" data-pm-avatar></span>
+        <div><p class="pm-status" data-pm-status></p><p class="pm-meta" data-pm-meta></p></div>
+      </div>
+      <p class="pm-bio" data-pm-bio></p>
+      <div data-pm-interests></div>
+    </div>`,
+    footer: `<button type="button" class="button" data-follow="" data-pm-follow aria-pressed="false">Follow</button>
+      <a class="button button-secondary" href="/messages" data-pm-message>Message</a>
+      <a class="button button-ghost" href="/profile" data-pm-profile>View profile</a>`,
+  });
+}
+
+// Extra page scripts. Only these fixed paths can be added, so a view can't
+// load anything else by mistake.
+const PAGE_SCRIPTS = new Set(["/pages.js"]);
+
+// layout({title, user, body, active, bodyClass, scripts}): full page shell with
+// the app sidebar. active is a sidebar key: "home" | "discover" | "my-events" |
+// "saved" | "map" | "communities" | "messages" | "notifications" | "tickets" |
+// "announcements" | "activity" | "settings" | "host" | "admin" | "profile".
+// "events" is the older name for "home" and still works. scripts: extra
+// deferred scripts loaded after /client.js (see PAGE_SCRIPTS).
+export function layout({ title = "Quad", user = null, body = "", active = "", bodyClass = "", scripts = [] }) {
   const theme = user && THEMES.has(user.theme) ? user.theme : "system";
   const fullTitle = /^quad\b/i.test(title) || /\bquad$/i.test(title) ? title : `${title} · Quad`;
-  const links = NAV_LINKS.filter((l) => (!l.auth || user) && (!l.admin || user?.role === "admin"))
-    .map(
-      (l) =>
-        `<li><a class="nav-link${active === l.key ? " is-active" : ""}" href="${l.href}"${
-          active === l.key ? ` aria-current="page"` : ""
-        }>${l.label}</a></li>`,
-    )
-    .join("");
+  const key = active === "events" ? "home" : active;
+  const hostOn = key === "host";
 
   return `<!doctype html>
 <html lang="en-AU" class="no-js" data-theme="${theme}">
@@ -472,25 +509,36 @@ export function layout({ title = "Quad", user = null, body = "", active = "", bo
   </head>
   <body${bodyClass ? ` class="${escape(bodyClass)}"` : ""}>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
-      <div class="nav-inner">
-        <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span>Quad</a>
-        <button type="button" class="nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="site-nav">
-          <span class="nav-toggle-bars" aria-hidden="true"></span><span class="nav-toggle-label">Menu</span>
-        </button>
-        <nav class="site-nav" id="site-nav" aria-label="Main">
-          <ul class="nav-links">${links}</ul>
-          <div class="nav-account">
-            ${user ? userMenu(user) : `<a class="button button-sm" href="/login">Log in</a>`}
-          </div>
-        </nav>
-      </div>
+    <header class="topbar">
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span>Quad</a>
+      <button type="button" class="nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="site-nav">
+        <span class="nav-toggle-bars" aria-hidden="true"></span><span class="nav-toggle-label">Menu</span>
+      </button>
     </header>
-    <main id="main" class="site-main">
-      ${body}
-    </main>
-    ${siteFooter(user)}
+    <div class="app-scrim" data-nav-scrim hidden></div>
+    <aside class="app-sidebar" id="site-nav" aria-label="Sidebar">
+      <div class="sb-head">
+        <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span>Quad</a>
+        <button type="button" class="icon-button sb-close" data-nav-close aria-label="Close menu">${icon("close")}</button>
+      </div>
+      <a class="button sb-host${hostOn ? " is-active" : ""}" href="${user ? "/events/new" : "/login?next=/events/new"}"${
+        hostOn ? ` aria-current="page"` : ""
+      }>${icon("host")}Host an event</a>
+      <nav class="sb-scroll" aria-label="Main">${sidebarNav(user, key)}</nav>
+      ${sidebarUser(user, key)}
+    </aside>
+    <div class="app-main">
+      <main id="main" class="site-main">
+        ${body}
+      </main>
+      ${siteFooter(user)}
+    </div>
+    ${personModal()}
     <script>${CLIENT_SCRIPT}</script>
+    <script src="/client.js" defer></script>${scripts
+      .filter((s) => PAGE_SCRIPTS.has(s))
+      .map((s) => `\n    <script src="${s}" defer></script>`)
+      .join("")}
   </body>
 </html>`;
 }
@@ -501,7 +549,7 @@ export function layout({ title = "Quad", user = null, body = "", active = "", bo
 
 // $0 shows as "Free" rather than "$0.00", since a price badge that always looks
 // like a real amount would misstate the (mocked) free events.
-function priceLabel(cents) {
+export function priceLabel(cents) {
   return cents > 0 ? `$${(cents / 100).toFixed(2).replace(/\.00$/, "")}` : "Free";
 }
 
@@ -509,8 +557,8 @@ function priceLabel(cents) {
 // (joined in listEvents); the event's creator column holds a session token and
 // is deliberately never read here.
 export function eventCard(event, { attendeeCount } = {}) {
-  const hostEmail = event.host_email;
-  const hostLabel = hostEmail ? `Hosted by ${escape(hostEmail)}` : "Host TBA";
+  const hostName = event.host_name || event.host_username || "";
+  const hostLabel = hostName ? `Hosted by ${escape(hostName)}` : "Host TBA";
   const chip =
     typeof attendeeCount === "number" && attendeeCount > 0
       ? `<span class="attendee-chip">${attendeeCount} checked in</span>`
@@ -528,7 +576,7 @@ export function eventCard(event, { attendeeCount } = {}) {
       ${event.affiliation ? `<p class="card-meta card-affiliation">${escape(event.affiliation)}</p>` : ""}
       ${chip}
       <div class="card-host">
-        ${avatar(hostEmail || "", "sm")}
+        ${avatar(hostName, "sm")}
         <span>${hostLabel}</span>
       </div>
     </div>
@@ -942,68 +990,7 @@ export function newEventPage({ user, categories }) {
   });
 }
 
-export function eventPage({ user, event, attendees, checkedIn }) {
-  const price = event.price_cents ?? 0;
-
-  let action;
-  if (!user) {
-    action = `<a class="button button-block" href="/login">Log in to check in</a>`;
-  } else if (checkedIn) {
-    action = `<p class="confirmed">You're checked in.</p>`;
-  } else if (price > 0) {
-    action = `<a class="button button-block" href="/events/${escape(event.slug)}/pay">Pay ${escape(
-      priceLabel(price),
-    )} &amp; check in</a>`;
-  } else {
-    action = `<form class="form-block" method="post" action="/events/${escape(event.slug)}/checkin" data-loading>
-      ${loadingButton("Check in (free)", { className: "button-block", loadingLabel: "Checking in..." })}
-    </form>`;
-  }
-
-  const tags = [event.category, event.affiliation]
-    .filter(Boolean)
-    .map((t) => `<span class="badge">${escape(t)}</span>`)
-    .join("");
-
-  return layout({
-    title: event.title,
-    user,
-    active: "events",
-    body: `
-      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Events</a><span aria-hidden="true">/</span><span>${escape(
-        event.title,
-      )}</span></nav>
-      <section class="event-hero">
-        ${tags ? `<div class="cluster">${tags}</div>` : ""}
-        <h1>${escape(event.title)}</h1>
-        <dl class="event-facts">
-          <div><dt>When</dt><dd>${escape(event.event_date ?? "Date to be confirmed")}</dd></div>
-          <div><dt>Where</dt><dd>${escape(event.location ?? "Location to be confirmed")}</dd></div>
-          <div><dt>Price</dt><dd>${escape(priceLabel(price))}</dd></div>
-        </dl>
-      </section>
-
-      <div class="event-layout">
-        <aside class="panel action-panel" aria-label="Check in">
-          <p class="action-price">${escape(priceLabel(price))}</p>
-          <p class="meta">${attendees.length} checked in so far</p>
-          ${action}
-        </aside>
-
-        <section class="panel">
-          <h2 class="panel-title">Who's checked in (${attendees.length})</h2>
-          ${
-            attendees.length
-              ? `<ul class="attendees">${attendees
-                  .map((a) => `<li>${escape(a.email)}</li>`)
-                  .join("\n")}</ul>`
-              : `<p class="meta">Nobody yet. Be the first to check in.</p>`
-          }
-        </section>
-      </div>
-    `,
-  });
-}
+// eventPage lives in event-views.js.
 
 // A dummy payment step: no card processor, no stored details, just a fake
 // form that goes straight to the real checkin route on submit. This exists so

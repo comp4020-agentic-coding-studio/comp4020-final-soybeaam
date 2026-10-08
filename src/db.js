@@ -199,7 +199,20 @@ if (count.n === 0) {
   insert.run("study-sprint", "Study sprint", "2026-10-20", "R.G. Menzies Library", null, "Workshop", 0);
 }
 
-export const CATEGORIES = ["Social", "Workshop", "Quiz/Trivia", "Sport", "Party", "Other"];
+// The first six are the original campus categories; the rest arrived with the
+// social events seeded by social-db.js.
+export const CATEGORIES = [
+  "Social",
+  "Workshop",
+  "Quiz/Trivia",
+  "Sport",
+  "Party",
+  "Other",
+  "Music",
+  "Technology",
+  "Food",
+  "Art",
+];
 
 export function userByToken(token) {
   return db.prepare("SELECT * FROM users WHERE token = ?").get(token);
@@ -260,6 +273,12 @@ export function rotateToken(oldToken) {
     if (res.changes === 0) return null;
     db.prepare("UPDATE checkins SET user_token = ? WHERE user_token = ?").run(newToken, oldToken);
     db.prepare("UPDATE events SET created_by = ? WHERE created_by = ?").run(newToken, oldToken);
+    // Tables added by social-db.js. Checked by name so db.js still works on
+    // its own, before (or without) social-db.js creating them.
+    for (const table of ["event_maybes", "chat_messages", "announcements"]) {
+      const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table);
+      if (exists) db.prepare(`UPDATE ${table} SET user_token = ? WHERE user_token = ?`).run(newToken, oldToken);
+    }
     return newToken;
   });
 }
@@ -460,6 +479,7 @@ export function listEvents({ sort, category } = {}) {
   // host_email comes from the join so views never need created_by (which holds
   // the host's session token and must not be rendered).
   let sql = `SELECT events.*, users.email AS host_email,
+              users.name AS host_name, users.username AS host_username,
               (SELECT COUNT(*) FROM checkins WHERE checkins.event_slug = events.slug) AS attendee_count
        FROM events LEFT JOIN users ON users.token = events.created_by`;
   const params = [];

@@ -16,9 +16,22 @@ import {
 } from "./db.js";
 import { renderMarkdown } from "./markdown.js";
 import { verifyPassword } from "./auth.js";
-import { homePage, loginPage, newEventPage, eventPage, payPage, readmePage, notFoundPage } from "./views.js";
+import { homePage, loginPage, newEventPage, payPage, readmePage, notFoundPage } from "./views.js";
+import { eventPage } from "./event-views.js";
+import {
+  getEventFull,
+  isMaybe,
+  eventAttendees,
+  chatFor,
+  announcementsFor,
+  canManageEvent,
+  peopleToMeet,
+  relatedEvents,
+} from "./social-db.js";
 import adminRoutes from "./routes/admin.js";
 import accountRoutes from "./routes/account.js";
+import socialRoutes from "./routes/social.js";
+import { safeNext } from "./routes/util.js";
 
 const app = Fastify({ logger: true });
 
@@ -37,6 +50,7 @@ app.addHook("onRequest", async (req) => {
 
 await app.register(adminRoutes);
 await app.register(accountRoutes);
+await app.register(socialRoutes);
 
 app.get("/healthz", async () => "ok");
 
@@ -61,16 +75,6 @@ function featuredEvents(limit = 8) {
   );
   if (upcoming.length) return { heading: "Coming up", events: upcoming.slice(0, limit) };
   return { heading: "Recently added", events: listEvents({ sort: "latest" }).slice(0, limit) };
-}
-
-// A post-login redirect target is only accepted if it is a path on this site:
-// it must start with a single "/", and may not contain a backslash or control
-// characters (browsers treat "/\evil.com" like "//evil.com").
-function safeNext(value) {
-  if (typeof value !== "string" || value.length > 512) return "";
-  if (!value.startsWith("/") || value.startsWith("//")) return "";
-  if (/[\\\u0000-\u001f\u007f]/.test(value)) return "";
-  return value;
 }
 
 app.get("/", async (req, reply) => {
@@ -166,15 +170,31 @@ app.post("/events", async (req, reply) => {
 });
 
 app.get("/events/:slug", async (req, reply) => {
-  const event = getEvent(req.params.slug);
+  // getEventFull has every legacy column (minus created_by) plus the social
+  // fields. eventPage is in event-views.js.
+  const event = getEventFull(req.params.slug);
   if (!event) {
     reply.code(404).type("text/html").send(notFoundPage({ user: req.user, text: EVENT_NOT_FOUND }));
     return;
   }
-  const checkedIn = req.user ? hasCheckedIn(event.slug, req.user.token) : false;
-  reply
-    .type("text/html")
-    .send(eventPage({ user: req.user, event, attendees: attendees(event.slug), checkedIn }));
+  const token = req.user?.token ?? null;
+  const checkedIn = token ? hasCheckedIn(event.slug, token) : false;
+  reply.type("text/html").send(
+    eventPage({
+      user: req.user,
+      event,
+      // The legacy plain email list; the spec checks it, so it stays as is.
+      attendees: attendees(event.slug),
+      checkedIn,
+      maybe: token ? isMaybe(event.slug, token) : false,
+      people: eventAttendees(event.slug),
+      chat: chatFor(`event:${event.slug}`, token),
+      announcements: announcementsFor(event.slug),
+      canManage: canManageEvent(req.user, event),
+      peopleToMeet: peopleToMeet(req.user, event.slug),
+      related: relatedEvents(event),
+    }),
+  );
 });
 
 app.get("/events/:slug/pay", async (req, reply) => {
