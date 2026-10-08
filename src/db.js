@@ -19,6 +19,27 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- One profile row per user (1:1). user_id is users.token, so the existing
+  -- token stays the identity everything else already references. email and
+  -- created_at live on users and are joined in by getProfile(), not copied.
+  -- preferences/interests hold JSON text; role and subscription are plain
+  -- labels with a default so a brand-new user needs no profile input.
+  CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id TEXT PRIMARY KEY REFERENCES users(token),
+    username TEXT UNIQUE,
+    display_name TEXT,
+    profile_photo TEXT,
+    date_of_birth TEXT,
+    location TEXT,
+    language TEXT NOT NULL DEFAULT 'en',
+    timezone TEXT NOT NULL DEFAULT 'Australia/Sydney',
+    preferences TEXT NOT NULL DEFAULT '{}',
+    interests TEXT NOT NULL DEFAULT '[]',
+    role TEXT NOT NULL DEFAULT 'student',
+    subscription TEXT NOT NULL DEFAULT 'free',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS events (
     slug TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -96,11 +117,68 @@ export function findOrCreateUser(email) {
   if (existing) return existing;
   const token = crypto.randomUUID();
   db.prepare("INSERT INTO users (token, email) VALUES (?, ?)").run(token, email);
+  db.prepare("INSERT INTO user_profiles (user_id) VALUES (?)").run(token);
   return { token, email };
 }
 
 export function userByToken(token) {
   return db.prepare("SELECT * FROM users WHERE token = ?").get(token);
+}
+
+const PROFILE_FIELDS = [
+  "username", "display_name", "profile_photo", "date_of_birth", "location",
+  "language", "timezone", "role", "subscription",
+];
+const PROFILE_JSON_FIELDS = ["preferences", "interests"];
+
+// Full UserProfile: email/created_at from users, the rest from user_profiles.
+// Users created before the profile table existed get their row on first read.
+export function getProfile(userId) {
+  db.prepare("INSERT OR IGNORE INTO user_profiles (user_id) VALUES (?)").run(userId);
+  const row = db
+    .prepare(
+      `SELECT p.user_id, p.username, p.display_name, u.email, p.profile_photo,
+              p.date_of_birth, p.location, p.language, p.timezone,
+              p.preferences, p.interests, p.role, p.subscription,
+              u.created_at, p.updated_at
+         FROM user_profiles p JOIN users u ON u.token = p.user_id
+        WHERE p.user_id = ?`,
+    )
+    .get(userId);
+  if (!row) return undefined;
+  return {
+    ...row,
+    preferences: JSON.parse(row.preferences),
+    interests: JSON.parse(row.interests),
+  };
+}
+
+// Partial update: only keys present in `fields` change. Unknown keys (email,
+// user_id, created_at) are ignored; they aren't editable through the profile.
+export function updateProfile(userId, fields) {
+  getProfile(userId); // ensure the row exists
+  const sets = [];
+  const values = [];
+  for (const key of PROFILE_FIELDS) {
+    if (key in fields) {
+      sets.push(`${key} = ?`);
+      values.push(fields[key]);
+    }
+  }
+  for (const key of PROFILE_JSON_FIELDS) {
+    if (key in fields) {
+      sets.push(`${key} = ?`);
+      values.push(JSON.stringify(fields[key]));
+    }
+  }
+  if (sets.length) {
+    sets.push("updated_at = datetime('now')");
+    db.prepare(`UPDATE user_profiles SET ${sets.join(", ")} WHERE user_id = ?`).run(
+      ...values,
+      userId,
+    );
+  }
+  return getProfile(userId);
 }
 
 // sort: "name_asc" | "name_desc" | "soonest" | "latest" (default: latest-created, as before)
