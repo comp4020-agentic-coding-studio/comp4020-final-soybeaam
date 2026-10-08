@@ -9,7 +9,7 @@
   --line: #e5e7eb;
   --muted: #5b6170;
   /* DEMO tag only: amber reads as "not real" without competing with the
-     action accent. #92400e on #fef3c7 is about 7:1 contrast. */
+     action accent. #92400e on #fef3c7 is about 6.4:1 contrast. */
   --demo-bg: #fef3c7;
   --demo-ink: #92400e;
 }
