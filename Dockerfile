@@ -18,6 +18,9 @@ COPY README.md ./
 
 ENV NODE_OPTIONS=--experimental-sqlite
 ENV DATA_DIR=/data
+# Keeps the dev-only admin/admin login and the seeded admin role off in any
+# container deployment, not just on Fly (src/auth.js DEV_ADMIN_ENABLED).
+ENV NODE_ENV=production
 
 EXPOSE 8080
 CMD ["node", "src/server.js"]
