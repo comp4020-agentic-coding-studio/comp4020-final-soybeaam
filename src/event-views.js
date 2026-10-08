@@ -318,6 +318,14 @@ function mapTile(x, y, { label = "", className = "" } = {}) {
   )}</span>${label ? `<span class="visually-hidden">${escape(label)}</span>` : ""}</div>`;
 }
 
+// Link to the real map, only when the event has stored coordinates.
+function osmLink(event) {
+  if (event.lat == null || event.lng == null) return "";
+  const lat = Number(event.lat).toFixed(6);
+  const lng = Number(event.lng).toFixed(6);
+  return ` <a href="https://www.openstreetmap.org/?mlat=${lat}&amp;mlon=${lng}#map=16/${lat}/${lng}" target="_blank" rel="noopener">Open in OpenStreetMap</a>`;
+}
+
 function location(event) {
   const d = event.details ?? {};
   if (d.map_x == null || d.map_y == null) return "";
@@ -334,7 +342,7 @@ function location(event) {
         event.distance_km != null ? `<br />${escape(event.distance_km)} km from you` : ""
       }</span>
     </div>
-    <p class="meta ev-map-caption">${icon("pin")}${escape(where)}. Map is a sketch, not to scale.</p>`,
+    <p class="meta ev-map-caption">${icon("pin")}${escape(where)}. Map is a sketch, not to scale.${osmLink(event)}</p>`,
     {
       className: "ev-anchor",
       extra: `<div class="map-zoom js-only">

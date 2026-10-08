@@ -18,6 +18,7 @@ import { renderMarkdown } from "./markdown.js";
 import { verifyPassword } from "./auth.js";
 import { homePage, loginPage, newEventPage, payPage, readmePage, notFoundPage } from "./views.js";
 import { eventPage } from "./event-views.js";
+import { geocode, distanceFromCbdKm } from "./geocode.js";
 import {
   getEventFull,
   isMaybe,
@@ -157,7 +158,13 @@ app.post("/events", async (req, reply) => {
     reply.code(400).type("text/html").send(newEventPage({ user: req.user, categories: CATEGORIES }));
     return;
   }
+  // Look the address up only for a logged-in host with a location. A failed
+  // lookup just means no coordinates; the event is still created.
+  const place = location && String(location).trim() ? await geocode(location) : null;
   const slug = createEvent({
+    lat: place?.lat,
+    lng: place?.lng,
+    distance_km: place ? distanceFromCbdKm(place.lat, place.lng) : undefined,
     title,
     event_date,
     location,

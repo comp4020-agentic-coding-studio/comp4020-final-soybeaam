@@ -43,6 +43,8 @@ const EVENT_COLUMNS = [
   ["community", "TEXT"], // a COMMUNITIES slug
   ["details", "TEXT"], // JSON: {schedule, lineup, faqs, map_x, map_y}
   ["seed_offset", "INTEGER"], // days from today; only set on seeded events
+  ["lat", "REAL"], // real coordinates, nullable
+  ["lng", "REAL"],
 ];
 for (const [name, type] of EVENT_COLUMNS) {
   if (!eventColumns.has(name)) db.exec(`ALTER TABLE events ADD COLUMN ${name} ${type}`);
@@ -190,6 +192,22 @@ function isWeekendSoon(dateStr, today) {
 
 const EMPTY_DETAILS = { schedule: [], lineup: [], faqs: [], map_x: null, map_y: null };
 
+// The drawn maps cover a fixed box around Sydney. toMapXY turns real
+// coordinates into 0..100 positions on it, or null when outside the box.
+const MAP_BOX = { north: -33.7, south: -34.05, west: 150.95, east: 151.32 };
+export function toMapXY(lat, lng) {
+  if (lat == null || lng == null) return null;
+  const la = Number(lat);
+  const lo = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) return null;
+  if (la > MAP_BOX.north || la < MAP_BOX.south || lo < MAP_BOX.west || lo > MAP_BOX.east) return null;
+  const round = (n) => Math.round(n * 10) / 10;
+  return {
+    map_x: round(((lo - MAP_BOX.west) / (MAP_BOX.east - MAP_BOX.west)) * 100),
+    map_y: round(((MAP_BOX.north - la) / (MAP_BOX.north - MAP_BOX.south)) * 100),
+  };
+}
+
 // One events row (with going_count/maybe_count/host_email from the query)
 // to the public event shape. created_by (the host's token) is dropped.
 function eventOut(row, users) {
@@ -199,6 +217,12 @@ function eventOut(row, users) {
   const going = Number(row.going_count ?? 0);
   const attendeeCount = Number(row.base_attendees ?? 0) + going;
   const details = { ...EMPTY_DETAILS, ...parseJson(row.details, {}) };
+  if (row.lat != null && row.lng != null) {
+    // Real coordinates win over the hand-set pin. Outside the box: no pin.
+    const xy = toMapXY(row.lat, row.lng);
+    details.map_x = xy ? xy.map_x : null;
+    details.map_y = xy ? xy.map_y : null;
+  }
   const dated = /^\d{4}-\d{2}-\d{2}$/.test(row.event_date ?? "");
   return {
     ...rest,
@@ -856,3 +880,33 @@ function seedSocial() {
 }
 
 seedSocial();
+
+// Seeded events get a stable pseudo-random spot near one of these Sydney
+// anchors, chosen by a hash of the slug. Only rows with lat IS NULL are set,
+// so nothing is overwritten.
+const SYDNEY_ANCHORS = [
+  [-33.8688, 151.2093], // CBD
+  [-33.8847, 151.2109], // Surry Hills
+  [-33.8979, 151.1789], // Newtown
+  [-33.8789, 151.2201], // Darlinghurst
+  [-33.8915, 151.2767], // Bondi
+  [-33.7969, 151.2878], // Manly
+  [-33.815, 151.0011], // Parramatta
+  [-33.7969, 151.1832], // Chatswood
+  [-33.9115, 151.1552], // Marrickville
+  [-33.8806, 151.1858], // Glebe
+];
+
+function seedCoordinates() {
+  const rows = db.prepare("SELECT slug FROM events WHERE seed_offset IS NOT NULL AND lat IS NULL").all();
+  const update = db.prepare("UPDATE events SET lat = ?, lng = ? WHERE slug = ? AND lat IS NULL");
+  const jitter = (s) => ((hash(s) % 10000) / 10000 * 2 - 1) * 0.008;
+  const round = (n) => Math.round(n * 1e6) / 1e6;
+  inTransaction(() => {
+    for (const { slug } of rows) {
+      const [lat, lng] = SYDNEY_ANCHORS[hash(slug) % SYDNEY_ANCHORS.length];
+      update.run(round(lat + jitter(`${slug}:lat`)), round(lng + jitter(`${slug}:lng`)), slug);
+    }
+  });
+}
+seedCoordinates();

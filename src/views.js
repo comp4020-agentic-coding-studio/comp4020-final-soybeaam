@@ -956,7 +956,12 @@ export function newEventPage({ user, categories }) {
           ${formField({ label: "Title", name: "title", required: true, placeholder: "Trivia night" })}
           <div class="field-row">
             ${formField({ label: "Date", name: "event_date", type: "date" })}
-            ${formField({ label: "Location", name: "location", placeholder: "Union Court" })}
+            ${formField({
+              label: "Location",
+              name: "location",
+              placeholder: "Union Court",
+              hint: "We look the address up on OpenStreetMap to put it on the map.",
+            })}
           </div>
           ${formField({
             label: "Affiliation",

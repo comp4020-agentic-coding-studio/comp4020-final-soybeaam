@@ -501,11 +501,14 @@ export function getEvent(slug) {
   return db.prepare("SELECT * FROM events WHERE slug = ?").get(slug);
 }
 
-export function createEvent({ title, event_date, location, affiliation, category, price_cents, created_by }) {
+// lat, lng and distance_km are optional (the lat/lng/distance_km columns are
+// added by social-db.js, which is always loaded alongside this).
+export function createEvent({ title, event_date, location, affiliation, category, price_cents, created_by, lat, lng, distance_km }) {
   const slug = slugify(title);
+  const hasPoint = Number.isFinite(lat) && Number.isFinite(lng);
   db.prepare(
-    `INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO events (slug, title, event_date, location, affiliation, category, price_cents, created_by, lat, lng, distance_km)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     slug,
     title,
@@ -515,6 +518,9 @@ export function createEvent({ title, event_date, location, affiliation, category
     category || null,
     Number(price_cents) || 0,
     created_by || null,
+    hasPoint ? lat : null,
+    hasPoint ? lng : null,
+    hasPoint && Number.isFinite(distance_km) ? distance_km : null,
   );
   return slug;
 }
