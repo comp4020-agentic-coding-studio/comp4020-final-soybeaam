@@ -110,3 +110,21 @@ it("an anonymous visitor can't check in without logging in first", async () => {
   expect(res.status).toBe(302);
   expect(res.headers.get("location")).toBe("/login");
 });
+
+it("seeded dummy events and users carry a DEMO tag, real users don't", async () => {
+  const home = await (await fetch(new URL("/", baseUrl))).text();
+  expect(home).toMatch(/Welcome mixer<\/a> <span class="demo-tag"[^>]*>DEMO<\/span>/);
+
+  // A real (non-seeded) attendee keeps plain markup; the demo attendee is tagged.
+  const session = jar();
+  const email = uniqueEmail();
+  await session.fetch("/login", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: `email=${encodeURIComponent(email)}`,
+  });
+  await session.fetch("/events/welcome-mixer/checkin", { method: "POST" });
+  const page = await (await session.fetch("/events/welcome-mixer")).text();
+  expect(page).toContain(`<li>${email}</li>`);
+  expect(page).toMatch(/<li>priya\.demo@quad\.invalid <span class="demo-tag"/);
+});

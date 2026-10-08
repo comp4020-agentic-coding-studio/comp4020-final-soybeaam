@@ -1,6 +1,13 @@
 const escape = (s = "") =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+// Marks seeded dummy data (users and events flagged is_demo in db.js). Text,
+// not just colour, so it still reads without colour vision or styles. Returns
+// "" for real data so their markup is unchanged.
+function demoTag(isDemo) {
+  return isDemo ? ` <span class="demo-tag" title="Dummy data seeded for the demo">DEMO</span>` : "";
+}
+
 function layout({ title, user, body }) {
   return `<!doctype html>
 <html lang="en-AU">
@@ -17,7 +24,7 @@ function layout({ title, user, body }) {
         <span class="spacer"></span>
         ${
           user
-            ? `<span class="who">${escape(user.email)}</span>
+            ? `<span class="who">${escape(user.email)}${demoTag(user.is_demo)}</span>
                <form method="post" action="/logout"><button type="submit">Log out</button></form>`
             : `<a href="/login">Log in</a>`
         }
@@ -45,7 +52,9 @@ function priceLabel(cents) {
 export function eventCard(event, { attendeeCount } = {}) {
   const hostEmail = event.host_email;
   const initial = hostEmail ? String(hostEmail).charAt(0).toUpperCase() : "?";
-  const hostLabel = hostEmail ? `Hosted by ${escape(hostEmail)}` : "Host TBA";
+  const hostLabel = hostEmail
+    ? `Hosted by ${escape(hostEmail)}${demoTag(event.host_is_demo)}`
+    : "Host TBA";
   const chip =
     typeof attendeeCount === "number" && attendeeCount > 0
       ? `<span class="attendee-chip">${attendeeCount} checked in</span>`
@@ -57,7 +66,7 @@ export function eventCard(event, { attendeeCount } = {}) {
       <span class="price-badge">${escape(priceLabel(event.price_cents ?? 0))}</span>
     </div>
     <div class="card-body">
-      <h2 class="card-title"><a href="/events/${escape(event.slug)}">${escape(event.title)}</a></h2>
+      <h2 class="card-title"><a href="/events/${escape(event.slug)}">${escape(event.title)}</a>${demoTag(event.is_demo)}</h2>
       <p class="card-meta">${escape(event.event_date || "Date TBA")}</p>
       <p class="card-meta">${escape(event.location || "Location TBA")}</p>
       ${event.affiliation ? `<p class="card-meta card-affiliation">${escape(event.affiliation)}</p>` : ""}
@@ -208,10 +217,16 @@ export function eventPage({ user, event, attendees, checkedIn }) {
     title: event.title,
     user,
     body: `
-      <h1>${escape(event.title)}</h1>
+      <h1>${escape(event.title)}${demoTag(event.is_demo)}</h1>
+      ${
+        event.is_demo
+          ? `<p class="demo-note">This is a demo event with dummy attendees, seeded so the app isn't empty.</p>`
+          : ""
+      }
       <p class="meta">${escape(event.event_date ?? "date tbc")} · ${escape(event.location ?? "location tbc")}${
         event.affiliation ? ` · ${escape(event.affiliation)}` : ""
       }${event.category ? ` · ${escape(event.category)}` : ""} · ${escape(priceLabel(price))}</p>
+      ${event.host_email ? `<p class="meta">Hosted by ${escape(event.host_email)}${demoTag(event.host_is_demo)}</p>` : ""}
 
       ${action}
 
@@ -219,7 +234,7 @@ export function eventPage({ user, event, attendees, checkedIn }) {
       ${
         attendees.length
           ? `<ul class="attendees">${attendees
-              .map((a) => `<li>${escape(a.email)}</li>`)
+              .map((a) => `<li>${escape(a.email)}${demoTag(a.is_demo)}</li>`)
               .join("\n")}</ul>`
           : `<p>Nobody yet — be the first.</p>`
       }

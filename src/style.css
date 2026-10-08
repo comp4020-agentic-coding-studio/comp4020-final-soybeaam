@@ -8,6 +8,10 @@
   --accent-ink: #ffffff;
   --line: #e5e7eb;
   --muted: #5b6170;
+  /* DEMO tag only: amber reads as "not real" without competing with the
+     action accent. #92400e on #fef3c7 is about 7:1 contrast. */
+  --demo-bg: #fef3c7;
+  --demo-ink: #92400e;
 }
 
 * {
@@ -140,6 +144,34 @@ h1 {
   font-weight: 700;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
+}
+
+/* DEMO tag on seeded dummy users and events (views.js demoTag) */
+.demo-tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--demo-ink);
+  border-radius: 999px;
+  background: var(--demo-bg);
+  color: var(--demo-ink);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+}
+
+h1 .demo-tag {
+  font-size: 0.8rem;
+}
+
+.demo-note {
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--demo-ink);
+  background: var(--demo-bg);
+  color: var(--demo-ink);
+  font-size: 0.9rem;
 }
 
 /* Event card grid (home page) */
