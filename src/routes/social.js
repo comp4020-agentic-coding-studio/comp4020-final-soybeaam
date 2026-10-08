@@ -131,6 +131,13 @@ export default async function socialRoutes(app) {
       .send(readFileSync(new URL("../pages.js", import.meta.url), "utf8"));
   });
 
+  // Real maps (MapLibre + OpenFreeMap) for the event page and /map.
+  app.get("/maps.js", async (req, reply) => {
+    reply
+      .type("application/javascript; charset=utf-8")
+      .send(readFileSync(new URL("../maps.js", import.meta.url), "utf8"));
+  });
+
   // Filters run here so the page works without JS. Every upcoming event is
   // also sent (non-matching ones hidden) so pages.js can filter instantly.
   app.get("/discover", async (req, reply) => {

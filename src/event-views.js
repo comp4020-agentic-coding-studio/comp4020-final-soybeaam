@@ -326,26 +326,41 @@ function osmLink(event) {
   return ` <a href="https://www.openstreetmap.org/?mlat=${lat}&amp;mlon=${lng}#map=16/${lat}/${lng}" target="_blank" rel="noopener">Open in OpenStreetMap</a>`;
 }
 
+function hasCoords(event) {
+  return event.lat != null && event.lng != null && Number.isFinite(Number(event.lat)) && Number.isFinite(Number(event.lng));
+}
+
+// The drawn sketch is the fallback. With coordinates, maps.js swaps in a real
+// map (data-realmap) once MapLibre has loaded. Events outside the sketch's box
+// get a plain note as the fallback instead of a misplaced pin.
 function location(event) {
   const d = event.details ?? {};
-  if (d.map_x == null || d.map_y == null) return "";
+  const drawn = d.map_x != null && d.map_y != null;
+  const real = hasCoords(event);
+  if (!drawn && !real) return "";
   const where = event.location || "Event location";
-  return section(
-    "ev-map",
-    "Location",
-    `<div class="ev-map" data-map style="--x:${Number(d.map_x)}%;--y:${Number(d.map_y)}%;--z:1">
-      <div class="ev-map-canvas">${MAP_SVG}</div>
+  const realAttrs = real ? ` data-realmap="event" data-lat="${Number(event.lat)}" data-lng="${Number(event.lng)}" data-label="${escape(where)}"` : "";
+  const fallback = drawn
+    ? `<div class="ev-map-canvas">${MAP_SVG}</div>
       <button type="button" class="ev-map-pin" aria-describedby="ev-map-tip">${icon("pin")}<span class="visually-hidden">${escape(
         where,
       )}</span></button>
       <span class="ev-map-tip" id="ev-map-tip" role="tooltip"><strong>${escape(where)}</strong>${
         event.distance_km != null ? `<br />${escape(event.distance_km)} km from you` : ""
-      }</span>
+      }</span>`
+    : `<p class="ev-map-none">Map preview unavailable here. Use the link below to see it on OpenStreetMap.</p>`;
+  return section(
+    "ev-map",
+    "Location",
+    `<div class="ev-map"${drawn ? ` data-map style="--x:${Number(d.map_x)}%;--y:${Number(d.map_y)}%;--z:1"` : ""}${realAttrs}>
+      ${fallback}${real ? `<template data-realmap-icon>${icon("pin")}</template>` : ""}
     </div>
-    <p class="meta ev-map-caption">${icon("pin")}${escape(where)}. Map is a sketch, not to scale.${osmLink(event)}</p>`,
+    <p class="meta ev-map-caption">${icon("pin")}${escape(where)}.${drawn ? `<span class="map-sketch-note"> Map is a sketch, not to scale.</span>` : ""}${osmLink(event)}</p>`,
     {
       className: "ev-anchor",
-      extra: `<div class="map-zoom js-only">
+      extra: !drawn
+        ? ""
+        : `<div class="map-zoom js-only">
         <button type="button" class="icon-button" data-map-zoom="out" aria-label="Zoom out">${icon("minus")}</button>
         <button type="button" class="icon-button" data-map-zoom="in" aria-label="Zoom in">${icon("plus")}</button>
       </div>`,
@@ -694,6 +709,7 @@ export function eventPage({
     user,
     active: "home",
     bodyClass: "page-event",
+    scripts: hasCoords(event) ? ["/maps.js"] : [],
     body: `
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Events</a><span aria-hidden="true">/</span><span>${escape(
         event.title,

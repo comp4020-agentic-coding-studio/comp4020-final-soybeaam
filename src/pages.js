@@ -216,6 +216,10 @@
       var t = e.target instanceof Element ? e.target : null;
       if (!t) return;
       var el;
+      // With the real map on, maps.js handles its markers and the list's
+      // "show on map" buttons. The chips below still filter both.
+      var real = emap.classList.contains("has-realmap");
+      if (real && t.closest("[data-emap-show], [data-rmap-pin], .maplibregl-map")) return;
       if ((el = t.closest("[data-emap-pin]"))) {
         e.preventDefault();
         if (el === lastPin && !pop.hidden) closePop(false); else openPop(el);
@@ -231,7 +235,7 @@
         var cat = el.getAttribute("data-emap-cat");
         press(catBtns, el);
         var n = 0;
-        $$("[data-emap-pin], [data-emap-item]", emap).forEach(function (x) {
+        $$("[data-emap-pin], [data-emap-item], [data-rmap-pin]", emap).forEach(function (x) {
           var ok = !cat || x.getAttribute("data-category") === cat;
           x.hidden = !ok;
           if (ok && x.hasAttribute("data-emap-item")) n++;

@@ -420,10 +420,19 @@ const CITY_SVG = `<svg class="map-art emap-art" viewBox="0 0 1000 625" preserveA
   </g>
 </svg>`;
 
-// mapPage({user, events}): events carry details.map_x / details.map_y (0..100, or null).
+// mapPage({user, events}): events carry details.map_x / details.map_y (0..100,
+// or null outside the drawing) and lat / lng (or null). The drawing only pins
+// events inside its box; maps.js puts every event with lat/lng on the real map.
 export function mapPage({ user, events = [] }) {
-  const placed = events.filter((e) => e.details?.map_x != null && e.details?.map_y != null);
-  const present = [...new Set(placed.map((e) => e.category).filter(Boolean))];
+  const onDrawing = (e) => e.details?.map_x != null && e.details?.map_y != null;
+  const hasCoords = (e) => e.lat != null && e.lng != null && Number.isFinite(Number(e.lat)) && Number.isFinite(Number(e.lng));
+  const placed = events.filter(onDrawing);
+  const listed = events.filter((e) => onDrawing(e) || hasCoords(e));
+  const present = [...new Set(listed.map((e) => e.category).filter(Boolean))];
+  const coords = (e) =>
+    hasCoords(e)
+      ? ` data-lat="${Number(e.lat)}" data-lng="${Number(e.lng)}" data-label="${escape(`${e.title}, ${e.category ?? "event"}, ${shortWhen(e)}`)}" style="--cat-hue:${catHue(e.category)}"`
+      : "";
   const pin = (e) => {
     const x = Number(e.details.map_x);
     const y = Number(e.details.map_y);
@@ -447,12 +456,14 @@ export function mapPage({ user, events = [] }) {
         </div>
       </div>
     </template>`;
-  const listItem = (e) => `<li class="emap-item" data-emap-item="${escape(e.slug)}" data-category="${escape(e.category ?? "")}">
+  const listItem = (e) => `<li class="emap-item" data-emap-item="${escape(e.slug)}" data-category="${escape(e.category ?? "")}"${coords(e)}>
       <span class="emap-dot" style="--cat-hue:${catHue(e.category)}" aria-hidden="true"></span>
       <a class="emap-item-link" href="/events/${escape(e.slug)}"><strong>${escape(e.title)}</strong><span>${escape(shortWhen(e))}${
         e.location ? `, ${escape(e.location.split(",").pop().trim())}` : ""
       }</span></a>
-      <button type="button" class="icon-button js-only" data-emap-show="${escape(e.slug)}" aria-label="Show ${escape(e.title)} on the map">${icon(
+      <button type="button" class="icon-button js-only${onDrawing(e) ? "" : " realmap-only"}" data-emap-show="${escape(e.slug)}" aria-label="Show ${escape(
+        e.title,
+      )} on the map">${icon(
         "pin",
       )}</button>
     </li>`;
@@ -462,8 +473,8 @@ export function mapPage({ user, events = [] }) {
     user,
     active: "map",
     bodyClass: "page-map",
-    scripts: ["/pages.js"],
-    body: `${pageHeader({ title: "Event Map", subtitle: `${plural(placed.length, "upcoming event")} around inner Sydney. Pick a pin to see what's on.` })}
+    scripts: ["/pages.js", "/maps.js"],
+    body: `${pageHeader({ title: "Event Map", subtitle: `${plural(listed.length, "upcoming event")} around Sydney. Pick a pin to see what's on.` })}
       <div class="emap" data-emap>
         <section class="panel emap-stage" aria-labelledby="emap-title">
           <h2 class="visually-hidden" id="emap-title">Map</h2>
@@ -483,7 +494,7 @@ export function mapPage({ user, events = [] }) {
               <button type="button" class="icon-button" data-map-zoom="in" aria-label="Zoom in">${icon("plus")}</button>
             </div>
           </div>
-          <div class="emap-viewport" data-map style="--z:1">
+          <div class="emap-viewport" data-map data-realmap="events" style="--z:1">
             <div class="emap-canvas">
               ${CITY_SVG}
               ${placed.map(pin).join("")}
@@ -492,13 +503,14 @@ export function mapPage({ user, events = [] }) {
                 <div data-emap-pop-body></div>
               </div>
             </div>
+            <template data-realmap-icon>${icon("pin")}</template>
           </div>
-          <p class="meta small emap-caption">A sketch of the area, not to scale.</p>
-          ${placed.map(card).join("")}
+          <p class="meta small emap-caption map-sketch-note">A sketch of the area, not to scale.</p>
+          ${listed.map(card).join("")}
         </section>
         <section class="panel emap-list" aria-labelledby="emap-list-title">
-          <h2 class="panel-title" id="emap-list-title">On the map <span class="meta" data-emap-count>(${placed.length})</span></h2>
-          ${placed.length ? `<ul class="emap-items">${placed.map(listItem).join("")}</ul>` : `<p class="meta">No events have a location yet.</p>`}
+          <h2 class="panel-title" id="emap-list-title">On the map <span class="meta" data-emap-count>(${listed.length})</span></h2>
+          ${listed.length ? `<ul class="emap-items">${listed.map(listItem).join("")}</ul>` : `<p class="meta">No events have a location yet.</p>`}
         </section>
       </div>`,
   });

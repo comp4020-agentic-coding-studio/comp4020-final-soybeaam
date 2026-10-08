@@ -3069,6 +3069,13 @@ textarea {
   background: var(--surface-3);
 }
 
+/* A bit taller on phones so the map (drawn or real) isn't a thin strip. */
+@media (max-width: 40rem) {
+  .ev-map {
+    aspect-ratio: 3 / 2;
+  }
+}
+
 .ev-map-canvas {
   position: absolute;
   inset: 0;
@@ -4966,6 +4973,186 @@ input.fselect,
 
 .emap-item-link:hover strong {
   text-decoration: underline;
+}
+
+.emap:not(.has-realmap) .realmap-only {
+  display: none;
+}
+
+/* ==== SECTION: real maps (maps.js, MapLibre + OpenFreeMap) ====
+   The real map is built in .realmap on top of the drawing, invisible until
+   it has loaded, so the box never changes size when it swaps in. */
+
+/* Doubled class: maplibre-gl.css loads later and sets position: relative. */
+.realmap.realmap {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.realmap-on > .realmap {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.25s ease;
+}
+
+.realmap-on > :not(.realmap) {
+  display: none;
+}
+
+.emap-viewport.realmap-on {
+  overflow: hidden;
+}
+
+.has-realmap .map-zoom,
+.has-realmap .map-sketch-note {
+  display: none;
+}
+
+.realmap.maplibregl-map {
+  font-family: var(--font-sans);
+}
+
+/* style.css gives every button a lift on press and an accent hover; MapLibre's
+   own controls don't want either. */
+.realmap button:active {
+  transform: none;
+}
+
+.realmap .maplibregl-ctrl-group button {
+  background: transparent;
+  color: #16181d;
+}
+
+.realmap .maplibregl-ctrl-group button:not(:disabled):hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.realmap .maplibregl-ctrl-group {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+.realmap .maplibregl-ctrl.maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--paper) 85%, transparent);
+  color: var(--ink);
+  font-size: 0.7rem;
+}
+
+.realmap .maplibregl-ctrl-attrib a {
+  color: inherit;
+}
+
+.rmap-pin {
+  display: block;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.rmap-pin:hover {
+  background: transparent;
+}
+
+.rmap-pin.is-active {
+  z-index: 2;
+}
+
+.rmap-pin .icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: hsl(var(--cat-hue, 250) 70% 44%);
+  stroke: #fff;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+  transform-origin: 50% 100%;
+  transition: transform 0.15s ease;
+}
+
+.rmap-pin:hover .icon,
+.rmap-pin:focus-visible .icon,
+.rmap-pin.is-active .icon {
+  transform: scale(1.25);
+}
+
+.rmap-pin:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
+.rmap-pin-event {
+  width: 2.5rem;
+  height: 2.5rem;
+  cursor: default;
+}
+
+.rmap-pin-event .icon {
+  fill: var(--accent-strong);
+}
+
+.rmap-popup .maplibregl-popup-content {
+  width: 16rem;
+  max-width: 100%;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+}
+
+.rmap-popup[class*="anchor-bottom"] .maplibregl-popup-tip {
+  border-top-color: var(--paper);
+}
+
+.rmap-popup[class*="anchor-top"] .maplibregl-popup-tip {
+  border-bottom-color: var(--paper);
+}
+
+.rmap-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: var(--paper);
+}
+
+.rmap-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: var(--paper);
+}
+
+.rmap-popup .maplibregl-popup-close-button {
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #16181d;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.rmap-popup .maplibregl-popup-close-button:hover {
+  background: #fff;
+}
+
+.ev-map-none {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
 }
 
 /* ==== SECTION: communities ==== */

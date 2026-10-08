@@ -483,19 +483,36 @@ function personModal() {
 
 // Extra page scripts. Only these fixed paths can be added, so a view can't
 // load anything else by mistake.
-const PAGE_SCRIPTS = new Set(["/pages.js"]);
+const PAGE_SCRIPTS = new Set(["/pages.js", "/maps.js"]);
+
+// MapLibre GL JS from a pinned CDN copy (no npm dependency). Only pages that
+// ask for /maps.js get it. If it fails to load, the drawn maps stay.
+const MAPLIBRE = {
+  js: "https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js",
+  jsHash: "sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp",
+  css: "https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css",
+  cssHash: "sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK",
+};
+
+function pageScript(src) {
+  const tag = `\n    <script src="${src}" defer></script>`;
+  if (src !== "/maps.js") return tag;
+  return `\n    <script src="${MAPLIBRE.js}" integrity="${MAPLIBRE.jsHash}" crossorigin="anonymous" defer></script>${tag}`;
+}
 
 // layout({title, user, body, active, bodyClass, scripts}): full page shell with
 // the app sidebar. active is a sidebar key: "home" | "discover" | "my-events" |
 // "saved" | "map" | "communities" | "messages" | "notifications" | "tickets" |
 // "announcements" | "activity" | "settings" | "host" | "admin" | "profile".
 // "events" is the older name for "home" and still works. scripts: extra
-// deferred scripts loaded after /client.js (see PAGE_SCRIPTS).
+// deferred scripts loaded after /client.js (see PAGE_SCRIPTS). "/maps.js" also
+// brings in the MapLibre script and stylesheet.
 export function layout({ title = "Quad", user = null, body = "", active = "", bodyClass = "", scripts = [] }) {
   const theme = user && THEMES.has(user.theme) ? user.theme : "system";
   const fullTitle = /^quad\b/i.test(title) || /\bquad$/i.test(title) ? title : `${title} · Quad`;
   const key = active === "events" ? "home" : active;
   const hostOn = key === "host";
+  const pageScripts = [...new Set(scripts.filter((s) => PAGE_SCRIPTS.has(s)))];
 
   return `<!doctype html>
 <html lang="en-AU" class="no-js" data-theme="${theme}">
@@ -504,7 +521,11 @@ export function layout({ title = "Quad", user = null, body = "", active = "", bo
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>${escape(fullTitle)}</title>
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/style.css" />${
+      pageScripts.includes("/maps.js")
+        ? `\n    <link rel="stylesheet" href="${MAPLIBRE.css}" integrity="${MAPLIBRE.cssHash}" crossorigin="anonymous" />`
+        : ""
+    }
     <script>document.documentElement.className = document.documentElement.className.replace("no-js", "js");</script>
   </head>
   <body${bodyClass ? ` class="${escape(bodyClass)}"` : ""}>
@@ -535,10 +556,7 @@ export function layout({ title = "Quad", user = null, body = "", active = "", bo
     </div>
     ${personModal()}
     <script>${CLIENT_SCRIPT}</script>
-    <script src="/client.js" defer></script>${scripts
-      .filter((s) => PAGE_SCRIPTS.has(s))
-      .map((s) => `\n    <script src="${s}" defer></script>`)
-      .join("")}
+    <script src="/client.js" defer></script>${pageScripts.map(pageScript).join("")}
   </body>
 </html>`;
 }
