@@ -29,7 +29,7 @@ const memberCount = (c) =>
 /* ------------------------------------------------------------------ */
 
 // communitiesPage({user, communities}): see communities() in social-db.js.
-export function communitiesPage({ user, communities = [] }) {
+export function communitiesPage({ user, communities = [], theme = "system" }) {
   const card = (c) => `<li class="cm-card" style="--hue:${Number(c.cover_hue) || 18}" data-community-slug="${escape(c.slug)}">
       <div class="cm-cover" aria-hidden="true"><span class="cm-mark">${escape(c.name.charAt(0))}</span></div>
       <div class="cm-body">
@@ -49,6 +49,7 @@ export function communitiesPage({ user, communities = [] }) {
   return layout({
     title: "Communities",
     user,
+    theme,
     active: "communities",
     scripts: ["/pages.js"],
     body: `${pageHeader({ title: "Communities", subtitle: "Groups of people into the same things. Join one to hear about its events and chat." })}
@@ -58,7 +59,7 @@ export function communitiesPage({ user, communities = [] }) {
 
 // communityPage({user, community}): community(slug) from social-db.js, which
 // adds events, discussions and chat to the communities() shape.
-export function communityPage({ user, community: c }) {
+export function communityPage({ user, community: c, theme = "system" }) {
   const mods = new Set(c.moderators.map((m) => m.username));
   const people = [...c.moderators, ...c.members.filter((m) => !mods.has(m.username))];
   const memberRow = (p) => `<li class="cm-member">
@@ -85,6 +86,7 @@ export function communityPage({ user, community: c }) {
   return layout({
     title: c.name,
     user,
+    theme,
     active: "communities",
     bodyClass: "page-community",
     scripts: ["/pages.js"],
@@ -184,7 +186,7 @@ function activityItem(i) {
 }
 
 // activityPage({user, items}): [{id, actor, count, verb, target: {type, slug, title, href}, at}].
-export function activityPage({ user, items = [] }) {
+export function activityPage({ user, items = [], theme = "system" }) {
   const today = new Date().toDateString();
   const isToday = (at) => new Date(String(at).replace(" ", "T") + "Z").toDateString() === today;
   const groups = [
@@ -201,6 +203,7 @@ export function activityPage({ user, items = [] }) {
   return layout({
     title: "Activity",
     user,
+    theme,
     active: "activity",
     scripts: ["/pages.js"],
     body: `${pageHeader({ title: "Activity", subtitle: "What people on Quad have been up to lately." })}
@@ -260,7 +263,7 @@ function announcementCard(a) {
 // announcementsPage({user, announcements, canPostGlobal}): announcements are
 // [{id, title, body, pinned, at, author, event: {slug, title} | null,
 // can_manage}]. can_manage is set by the route (host or admin).
-export function announcementsPage({ user, announcements = [], canPostGlobal = false }) {
+export function announcementsPage({ user, announcements = [], canPostGlobal = false, theme = "system" }) {
   const form = canPostGlobal
     ? `<details class="panel ann-compose">
         <summary class="ann-compose-summary">${icon("announcements")}<span><strong>Post an announcement</strong><span class="meta small">Goes to everyone on Quad.</span></span></summary>
@@ -277,6 +280,7 @@ export function announcementsPage({ user, announcements = [], canPostGlobal = fa
   return layout({
     title: "Announcements",
     user,
+    theme,
     active: "announcements",
     body: `${pageHeader({ title: "Announcements", subtitle: "News from Quad and updates from event hosts. Pinned ones stay at the top." })}
       ${form}

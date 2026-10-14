@@ -385,6 +385,18 @@ hr {
   }
 }
 
+@media (min-width: 90rem) {
+  .site-main {
+    max-width: 90rem;
+  }
+}
+
+@media (min-width: 120rem) {
+  .site-main {
+    max-width: 104rem;
+  }
+}
+
 .container {
   max-width: var(--container);
   margin: 0 auto;

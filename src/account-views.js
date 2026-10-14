@@ -83,7 +83,7 @@ function eventList(events, isOwn) {
 
 // profilePage({viewer, profile, events, isOwn}): read-only profile. viewer is
 // the logged-in user (or null), profile the user being shown.
-export function profilePage({ viewer, profile, events, isOwn }) {
+export function profilePage({ viewer, profile, events, isOwn, theme = "system" }) {
   const name = displayName(profile);
   const interests = parseInterests(profile.interests);
   const joined = formatDate(profile.created_at);
@@ -117,6 +117,7 @@ export function profilePage({ viewer, profile, events, isOwn }) {
   return layout({
     title: isOwn ? "Your profile" : name,
     user: viewer,
+    theme,
     active: isOwn ? "profile" : "",
     body: `<div class="profile-page stack-lg stack">
       ${hero}
@@ -315,7 +316,7 @@ const SETTINGS_SCRIPT = `<script>
 // settingsPage({user, values, errors, flash, tab}): values/errors are keyed by
 // section ("profile", "preferences", "security"). Sections without values fall
 // back to the saved user row. tab names the section that failed, if any.
-export function settingsPage({ user, values = {}, errors = {}, flash = "", tab = "" }) {
+export function settingsPage({ user, values = {}, errors = {}, flash = "", tab = "", theme = "system" }) {
   const profileValues = values.profile ?? {
     name: user.name ?? "",
     username: user.username ?? "",
@@ -342,6 +343,7 @@ export function settingsPage({ user, values = {}, errors = {}, flash = "", tab =
   return layout({
     title: "Settings",
     user,
+    theme,
     active: "settings",
     body: `
       ${flashToast(FLASH, flash)}

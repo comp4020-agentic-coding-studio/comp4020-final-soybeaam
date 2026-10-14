@@ -70,7 +70,7 @@ function conversation(t, activeId) {
 //       or starts an empty one (kept on this device by pages.js).
 //   active: thread id from /messages?thread=<id>.
 // Sending is client-side only (pages.js, localStorage per viewer).
-export function messagesPage({ user, threads = [], to = null, active = "" }) {
+export function messagesPage({ user, threads = [], to = null, active = "", theme = "system" }) {
   const list = threads.map((t) => ({ ...t, last: t.last ? { ...t.last, is_mine: t.messages.at(-1)?.is_mine } : null }));
   let activeId = list.some((t) => t.id === active) ? active : "";
   if (to?.username) {
@@ -88,6 +88,7 @@ export function messagesPage({ user, threads = [], to = null, active = "" }) {
   return layout({
     title: "Messages",
     user,
+    theme,
     active: "messages",
     bodyClass: "page-messages",
     scripts: ["/pages.js"],
@@ -123,7 +124,7 @@ const NOTIF_ICON = { announcement: "announcements", reply: "reply", reminder: "c
 // notificationsPage({user, notifications}): [{id, kind, text, href, at}].
 // Read state is kept in the browser (Quad.read); pages.js marks items and
 // keeps the sidebar badge in step through data-notification-ids.
-export function notificationsPage({ user, notifications = [] }) {
+export function notificationsPage({ user, notifications = [], theme = "system" }) {
   const ids = escape(JSON.stringify(notifications.map((n) => n.id)));
   const item = (n) => `<li class="nt" data-notif="${escape(n.id)}" data-kind="${escape(n.kind)}">
       <span class="nt-icon nt-${escape(n.kind)}" aria-hidden="true">${icon(NOTIF_ICON[n.kind] ?? "notifications")}</span>
@@ -136,6 +137,7 @@ export function notificationsPage({ user, notifications = [] }) {
   return layout({
     title: "Notifications",
     user,
+    theme,
     active: "notifications",
     scripts: ["/pages.js"],
     body: `${pageHeader({
@@ -165,10 +167,11 @@ export function notificationsPage({ user, notifications = [] }) {
 
 // formErrorPage({user, text, back}): a rejected form post (empty chat message,
 // title too long and so on), with a link back to where it came from.
-export function formErrorPage({ user, text, back = "/" }) {
+export function formErrorPage({ user, text, back = "/", theme = "system" }) {
   return layout({
     title: "Couldn't save that",
     user,
+    theme,
     body: errorState({ title: "Couldn't save that", text, action: { href: back, label: "Go back" } }),
   });
 }

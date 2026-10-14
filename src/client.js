@@ -403,9 +403,9 @@
 
   /* ---- Theme dial ---- */
   // Flips data-theme immediately on click rather than waiting for the normal
-  // form submit + redirect round trip. Guests only have localStorage; the
-  // DB is updated for logged-in users via the plain POST this form already
-  // makes, so leaving the submit alone there is enough (no preventDefault).
+  // form submit + redirect round trip. Guests get a plain "theme" cookie the
+  // server reads to render data-theme on the next page; logged-in users have
+  // their DB preference updated with a background POST.
   var themeDial = $("[data-theme-dial]");
   if (themeDial) {
     var loggedIn = themeDial.hasAttribute("data-logged-in");
@@ -416,11 +416,11 @@
           label.classList.toggle("is-active", label.contains(input));
         });
         if (!loggedIn) {
-          save("quad-theme", input.value);
+          d.cookie = "theme=" + encodeURIComponent(input.value) + "; path=/; max-age=31536000; samesite=lax";
         } else if (window.fetch) {
           fetch(themeDial.action, {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
             body: "theme=" + encodeURIComponent(input.value),
           });
         }

@@ -13,6 +13,7 @@ import {
   attendees,
   CATEGORIES,
   stats,
+  THEMES,
 } from "./db.js";
 import { renderMarkdown } from "./markdown.js";
 import { verifyPassword } from "./auth.js";
@@ -47,6 +48,10 @@ await app.register(fastifyFormbody);
 app.addHook("onRequest", async (req) => {
   const token = req.cookies.session && req.unsignCookie(req.cookies.session);
   req.user = token?.valid ? userByToken(token.value) ?? null : null;
+  // Guests keep their theme in a plain (unsigned) cookie so the first response
+  // already has the right data-theme. Never trust the raw value.
+  const cookieTheme = req.cookies.theme;
+  req.guestTheme = THEMES.includes(cookieTheme) ? cookieTheme : "system";
 });
 
 await app.register(adminRoutes);
@@ -85,6 +90,7 @@ app.get("/", async (req, reply) => {
   reply.type("text/html").send(
     homePage({
       user: req.user,
+      theme: req.guestTheme,
       events: listEvents({ sort, category }),
       sort,
       category,
@@ -104,7 +110,7 @@ app.get("/login", async (req, reply) => {
     reply.redirect(next || "/");
     return;
   }
-  reply.type("text/html").send(loginPage({ next }));
+  reply.type("text/html").send(loginPage({ next, theme: req.guestTheme }));
 });
 
 app.post("/login", async (req, reply) => {
@@ -115,7 +121,7 @@ app.post("/login", async (req, reply) => {
     reply
       .code(400)
       .type("text/html")
-      .send(loginPage({ error: "Enter a valid email.", field: "email", email, next }));
+      .send(loginPage({ error: "Enter a valid email.", field: "email", email, next, theme: req.guestTheme }));
     return;
   }
   // Unknown email, missing password, wrong password and accounts with no
@@ -126,7 +132,7 @@ app.post("/login", async (req, reply) => {
     reply
       .code(401)
       .type("text/html")
-      .send(loginPage({ error: "Email or password is incorrect.", field: "password", email, next }));
+      .send(loginPage({ error: "Email or password is incorrect.", field: "password", email, next, theme: req.guestTheme }));
     return;
   }
   // The session is still the signed users.token cookie (docs/decisions/0001).
@@ -145,7 +151,7 @@ app.get("/events/new", async (req, reply) => {
     reply.redirect("/login");
     return;
   }
-  reply.type("text/html").send(newEventPage({ user: req.user, categories: CATEGORIES }));
+  reply.type("text/html").send(newEventPage({ user: req.user, theme: req.guestTheme, categories: CATEGORIES }));
 });
 
 app.post("/events", async (req, reply) => {
@@ -155,7 +161,7 @@ app.post("/events", async (req, reply) => {
   }
   const { title, event_date, location, affiliation, category, price } = req.body ?? {};
   if (!title || !String(title).trim()) {
-    reply.code(400).type("text/html").send(newEventPage({ user: req.user, categories: CATEGORIES }));
+    reply.code(400).type("text/html").send(newEventPage({ user: req.user, theme: req.guestTheme, categories: CATEGORIES }));
     return;
   }
   // Look the address up only for a logged-in host with a location. A failed
@@ -181,7 +187,7 @@ app.get("/events/:slug", async (req, reply) => {
   // fields. eventPage is in event-views.js.
   const event = getEventFull(req.params.slug);
   if (!event) {
-    reply.code(404).type("text/html").send(notFoundPage({ user: req.user, text: EVENT_NOT_FOUND }));
+    reply.code(404).type("text/html").send(notFoundPage({ user: req.user, theme: req.guestTheme, text: EVENT_NOT_FOUND }));
     return;
   }
   const token = req.user?.token ?? null;
@@ -189,6 +195,7 @@ app.get("/events/:slug", async (req, reply) => {
   reply.type("text/html").send(
     eventPage({
       user: req.user,
+      theme: req.guestTheme,
       event,
       // The legacy plain email list; the spec checks it, so it stays as is.
       attendees: attendees(event.slug),
@@ -211,7 +218,7 @@ app.get("/events/:slug/pay", async (req, reply) => {
   }
   const event = getEvent(req.params.slug);
   if (!event) {
-    reply.code(404).type("text/html").send(notFoundPage({ user: req.user, text: EVENT_NOT_FOUND }));
+    reply.code(404).type("text/html").send(notFoundPage({ user: req.user, theme: req.guestTheme, text: EVENT_NOT_FOUND }));
     return;
   }
   if (!event.price_cents) {
@@ -220,7 +227,7 @@ app.get("/events/:slug/pay", async (req, reply) => {
     reply.redirect(`/events/${event.slug}`);
     return;
   }
-  reply.type("text/html").send(payPage({ user: req.user, event }));
+  reply.type("text/html").send(payPage({ user: req.user, theme: req.guestTheme, event }));
 });
 
 app.post("/events/:slug/checkin", async (req, reply) => {
@@ -230,7 +237,7 @@ app.post("/events/:slug/checkin", async (req, reply) => {
   }
   const event = getEvent(req.params.slug);
   if (!event) {
-    reply.code(404).type("text/html").send(notFoundPage({ user: req.user, text: EVENT_NOT_FOUND }));
+    reply.code(404).type("text/html").send(notFoundPage({ user: req.user, theme: req.guestTheme, text: EVENT_NOT_FOUND }));
     return;
   }
   checkIn(event.slug, req.user.token);
@@ -239,7 +246,7 @@ app.post("/events/:slug/checkin", async (req, reply) => {
 
 app.get("/readme/", async (req, reply) => {
   const md = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-  reply.type("text/html").send(readmePage({ html: renderMarkdown(md), user: req.user }));
+  reply.type("text/html").send(readmePage({ html: renderMarkdown(md), user: req.user, theme: req.guestTheme }));
 });
 
 app.get("/style.css", async (req, reply) => {
@@ -249,7 +256,7 @@ app.get("/style.css", async (req, reply) => {
 // Any URL no route matches. The root onRequest hook has already run, so the
 // page still shows who is logged in.
 app.setNotFoundHandler(async (req, reply) => {
-  reply.code(404).type("text/html").send(notFoundPage({ user: req.user ?? null }));
+  reply.code(404).type("text/html").send(notFoundPage({ user: req.user ?? null, theme: req.guestTheme }));
 });
 
 const port = Number(process.env.PORT ?? 8080);

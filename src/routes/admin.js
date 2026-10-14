@@ -73,13 +73,13 @@ function validate(values, target, me) {
 
 export default async function adminRoutes(app) {
   app.get("/admin/login", async (req, reply) => {
-    if (!DEV_ADMIN_ENABLED) return html(reply, 404, adminLoginDisabledPage({ user: req.user }));
+    if (!DEV_ADMIN_ENABLED) return html(reply, 404, adminLoginDisabledPage({ user: req.user, theme: req.guestTheme }));
     if (req.user?.role === "admin") return reply.redirect("/admin");
-    html(reply, 200, adminLoginPage({ user: req.user }));
+    html(reply, 200, adminLoginPage({ user: req.user, theme: req.guestTheme }));
   });
 
   app.post("/admin/login", async (req, reply) => {
-    if (!DEV_ADMIN_ENABLED) return html(reply, 404, adminLoginDisabledPage({ user: req.user }));
+    if (!DEV_ADMIN_ENABLED) return html(reply, 404, adminLoginDisabledPage({ user: req.user, theme: req.guestTheme }));
     const username = field(req.body, "username");
     const password = field(req.body, "password", { trim: false });
 
@@ -96,7 +96,7 @@ export default async function adminRoutes(app) {
       return html(
         reply,
         401,
-        adminLoginPage({ user: req.user, username, error: "Username or password is incorrect, or that account isn't an admin." }),
+        adminLoginPage({ user: req.user, theme: req.guestTheme, username, error: "Username or password is incorrect, or that account isn't an admin." }),
       );
     }
     setSession(reply, account);
@@ -113,6 +113,7 @@ export default async function adminRoutes(app) {
       200,
       adminDashboardPage({
         user: req.user,
+        theme: req.guestTheme,
         stats: stats(),
         activity: recentActivity(8),
         users: listUsers({ q, role, sort }),
@@ -126,12 +127,13 @@ export default async function adminRoutes(app) {
   app.get("/admin/users/:id/edit", async (req, reply) => {
     if (!requireAdmin(req, reply)) return;
     const target = findUserById(req.params.id);
-    if (!target) return html(reply, 404, notFoundPage({ user: req.user, text: "No user with that username or email." }));
+    if (!target) return html(reply, 404, notFoundPage({ user: req.user, theme: req.guestTheme, text: "No user with that username or email." }));
     html(
       reply,
       200,
       adminEditUserPage({
         user: req.user,
+        theme: req.guestTheme,
         target: { ...target, checkin_count: checkinCountFor(target.token) },
         id: req.params.id,
         values: formValues(target),
@@ -142,7 +144,7 @@ export default async function adminRoutes(app) {
   app.post("/admin/users/:id", async (req, reply) => {
     if (!requireAdmin(req, reply)) return;
     const target = findUserById(req.params.id);
-    if (!target) return html(reply, 404, notFoundPage({ user: req.user, text: "No user with that username or email." }));
+    if (!target) return html(reply, 404, notFoundPage({ user: req.user, theme: req.guestTheme, text: "No user with that username or email." }));
 
     // Fields missing from the body keep their current value.
     const values = formValues(target);
@@ -157,6 +159,7 @@ export default async function adminRoutes(app) {
         code,
         adminEditUserPage({
           user: req.user,
+          theme: req.guestTheme,
           target: { ...target, checkin_count: checkinCountFor(target.token) },
           id: req.params.id,
           values,

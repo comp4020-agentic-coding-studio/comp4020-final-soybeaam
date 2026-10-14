@@ -17,7 +17,7 @@ import {
 import { hashPassword, verifyPassword } from "../auth.js";
 import { notFoundPage } from "../views.js";
 import { profilePage, settingsPage, LANGUAGES, TIMEZONES } from "../account-views.js";
-import { html, field } from "./util.js";
+import { html, field, backTo, wantsJson } from "./util.js";
 
 const URL_RE = /^https?:\/\/\S+$/i;
 
@@ -31,27 +31,27 @@ export default async function accountRoutes(app) {
     html(
       reply,
       200,
-      profilePage({ viewer: req.user, profile: req.user, events: eventsCheckedInBy(req.user.token), isOwn: true }),
+      profilePage({ viewer: req.user, theme: req.guestTheme, profile: req.user, events: eventsCheckedInBy(req.user.token), isOwn: true }),
     );
   });
 
   app.get("/profile/:username", async (req, reply) => {
     const profile = findUserByUsername(req.params.username);
     if (!profile) {
-      return html(reply, 404, notFoundPage({ user: req.user, text: "There's no one with that username." }));
+      return html(reply, 404, notFoundPage({ user: req.user, theme: req.guestTheme, text: "There's no one with that username." }));
     }
     const isOwn = !!req.user && req.user.token === profile.token;
     html(
       reply,
       200,
-      profilePage({ viewer: req.user, profile, events: eventsCheckedInBy(profile.token), isOwn }),
+      profilePage({ viewer: req.user, theme: req.guestTheme, profile, events: eventsCheckedInBy(profile.token), isOwn }),
     );
   });
 
   app.get("/settings", async (req, reply) => {
     if (!req.user) return reply.redirect(LOGIN_FOR_SETTINGS);
     // settingsPage only shows its own fixed messages, so the raw value is safe.
-    html(reply, 200, settingsPage({ user: req.user, flash: req.query?.flash }));
+    html(reply, 200, settingsPage({ user: req.user, theme: req.guestTheme, flash: req.query?.flash }));
   });
 
   async function saveProfile(req, reply) {
@@ -86,7 +86,7 @@ export default async function accountRoutes(app) {
       html(
         reply,
         400,
-        settingsPage({ user: req.user, values: { profile: values }, errors: { profile: errors }, tab: "profile" }),
+        settingsPage({ user: req.user, theme: req.guestTheme, values: { profile: values }, errors: { profile: errors }, tab: "profile" }),
       );
     if (Object.keys(errors).length) return fail();
 
@@ -134,6 +134,7 @@ export default async function accountRoutes(app) {
         400,
         settingsPage({
           user: req.user,
+          theme: req.guestTheme,
           values: { preferences: values },
           errors: { preferences: errors },
           tab: "preferences",
@@ -146,12 +147,22 @@ export default async function accountRoutes(app) {
 
   // Just the theme, for the sidebar dial. Separate from /settings/preferences
   // so the dial doesn't need to resend language/timezone to pass validation.
+  // Logged-in users get it saved to the DB; guests get a plain theme cookie
+  // (not signed, not httpOnly, so client.js can also write it). fetch callers
+  // get JSON, a plain form post is sent back to the page it came from.
   app.post("/settings/theme", async (req, reply) => {
-    if (!req.user) return reply.code(401).send({ error: "not logged in" });
     const theme = field(req.body ?? {}, "theme");
-    if (!THEMES.includes(theme)) return reply.code(400).send({ error: "invalid theme" });
-    updatePreferences(req.user.token, { theme });
-    reply.send({ ok: true, theme });
+    if (!THEMES.includes(theme)) {
+      if (wantsJson(req)) return reply.code(400).send({ error: "invalid theme" });
+      return reply.redirect(backTo(req, "/"));
+    }
+    if (req.user) {
+      updatePreferences(req.user.token, { theme });
+    } else {
+      reply.cookie("theme", theme, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+    }
+    if (wantsJson(req)) return reply.send({ ok: true, theme });
+    reply.redirect(backTo(req, "/"));
   });
 
   app.post("/settings/password", async (req, reply) => {
@@ -168,7 +179,7 @@ export default async function accountRoutes(app) {
     if (next.length < 8) errors.new_password = "Use at least 8 characters.";
     else if (next !== confirm) errors.confirm_password = "The two new passwords don't match.";
     if (Object.keys(errors).length) {
-      return html(reply, 400, settingsPage({ user: req.user, errors: { security: errors }, tab: "security" }));
+      return html(reply, 400, settingsPage({ user: req.user, theme: req.guestTheme, errors: { security: errors }, tab: "security" }));
     }
     setPassword(req.user.token, hashPassword(next));
     // A new password ends every other session: rotating the token breaks the
