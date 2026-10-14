@@ -9,7 +9,11 @@ This is a first version (week 9). What exists today is in "What's live
 today"; everything else is in "Where this is going" and is not built.
 
 ## What's live today
-- Log in, with your session persisting when you come back
+- Log in with email and password (demo accounts alex, sam, maya and tom
+  at quad.test, all with password `password123`), with your session
+  persisting when you come back
+- Profile and settings pages, and a dev-only admin dashboard at
+  `/admin/login` (admin / admin; off when NODE_ENV=production or on Fly)
 - Any logged-in user can host an event (time, place, optional
   affiliation, category, price)
 - Check in to a free event in one step; a priced event goes through a
@@ -23,8 +27,9 @@ The app is good if:
    event is visible to anyone who loads that event's page after them —
    there's one shared view of who's going, not a private list per
    person.
-2. **Checking in is quick for a stranger.** Open the link, enter an
-   email, check in. No account to set up, no approval to wait on.
+2. **Checking in is quick for a stranger.** Open the link, log in
+   with a seeded demo account (for example alex@quad.test with password
+   `password123`), check in. No approval to wait on.
 3. **Hosting has no gatekeeper.** Anyone logged in can host an event —
    title, date, location, affiliation, category, price — with no
    review step before it's live.
@@ -40,7 +45,7 @@ The app is good if:
 ## What is enforced and what is judged
 Checked by the tests in `spec/events.test.ts`, against the running app:
 
-- a stranger can log in and check in, and the check-in is still there
+- a seeded demo user can log in with email and password and check in, and the check-in is still there
   when they come back
 - checking in twice doesn't create two entries
 - checking in requires being logged in
