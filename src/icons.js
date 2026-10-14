@@ -39,6 +39,9 @@ const PATHS = {
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   back: '<path d="M15 5l-7 7 7 7"/>',
   trending: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  sun: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8"/>',
+  moon: '<path d="M20 14.5A8.5 8.5 0 019.5 4 8.5 8.5 0 1020 14.5z"/>',
+  "circle-half": '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18z" fill="currentColor" stroke="none"/>',
 };
 
 // icon(name, className): inline SVG, hidden from assistive tech.

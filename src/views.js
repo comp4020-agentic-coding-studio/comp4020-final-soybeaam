@@ -431,6 +431,43 @@ function sidebarUser(user, active) {
   </div>`;
 }
 
+// Light/dark/system dial shown in the sidebar on every page. A real radio
+// group (works with no JS, posts to /settings/theme) that client.js upgrades
+// to flip data-theme immediately instead of waiting for the page reload.
+// Runs in <head>, before the stylesheet, so there's no flash of the wrong
+// colours. The server already rendered data-theme from the DB for logged-in
+// users; this only needs to apply it for guests (localStorage) and to apply
+// the accent colour, which is never stored server-side for anyone.
+function THEME_HEAD_SCRIPT(loggedIn) {
+  return `(function(){try{
+    var d=document.documentElement;
+    ${loggedIn ? "" : `var t=localStorage.getItem("quad-theme");if(t==="light"||t==="dark"||t==="system")d.setAttribute("data-theme",t);`}
+    var a=localStorage.getItem("quad-accent");
+    if(a&&a!=="orange")d.setAttribute("data-accent",a);
+  }catch(e){}})();`;
+}
+
+function themeDial(theme, user) {
+  const options = [
+    { value: "light", label: "Light", icon: "sun" },
+    { value: "system", label: "Auto", icon: "circle-half" },
+    { value: "dark", label: "Dark", icon: "moon" },
+  ];
+  return `<form class="theme-dial" method="post" action="/settings/theme" data-theme-dial${
+    user ? ` data-logged-in` : ""
+  } aria-label="Colour theme">
+    ${options
+      .map(
+        (o) => `<label class="theme-dial-option${theme === o.value ? " is-active" : ""}">
+          <input type="radio" name="theme" value="${o.value}" ${theme === o.value ? "checked" : ""} />
+          <span class="visually-hidden">${o.label}</span>
+          ${icon(o.icon, "icon")}
+        </label>`,
+      )
+      .join("")}
+  </form>`;
+}
+
 function siteFooter(user) {
   return `<footer class="site-footer">
     <div class="footer-inner">
@@ -521,6 +558,7 @@ export function layout({ title = "Quad", user = null, body = "", active = "", bo
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>${escape(fullTitle)}</title>
+    <script>${THEME_HEAD_SCRIPT(Boolean(user))}</script>
     <link rel="stylesheet" href="/style.css" />${
       pageScripts.includes("/maps.js")
         ? `\n    <link rel="stylesheet" href="${MAPLIBRE.css}" integrity="${MAPLIBRE.cssHash}" crossorigin="anonymous" />`
@@ -546,6 +584,7 @@ export function layout({ title = "Quad", user = null, body = "", active = "", bo
         hostOn ? ` aria-current="page"` : ""
       }>${icon("host")}Host an event</a>
       <nav class="sb-scroll" aria-label="Main">${sidebarNav(user, key)}</nav>
+      ${themeDial(theme, user)}
       ${sidebarUser(user, key)}
     </aside>
     <div class="app-main">

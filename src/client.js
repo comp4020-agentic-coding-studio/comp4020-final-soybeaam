@@ -401,6 +401,50 @@
     else if (sidebar && sidebar.classList.contains("is-open")) setNav(false, true);
   });
 
+  /* ---- Theme dial ---- */
+  // Flips data-theme immediately on click rather than waiting for the normal
+  // form submit + redirect round trip. Guests only have localStorage; the
+  // DB is updated for logged-in users via the plain POST this form already
+  // makes, so leaving the submit alone there is enough (no preventDefault).
+  var themeDial = $("[data-theme-dial]");
+  if (themeDial) {
+    var loggedIn = themeDial.hasAttribute("data-logged-in");
+    $$('input[name="theme"]', themeDial).forEach(function (input) {
+      input.addEventListener("change", function () {
+        d.documentElement.setAttribute("data-theme", input.value);
+        $$(".theme-dial-option", themeDial).forEach(function (label) {
+          label.classList.toggle("is-active", label.contains(input));
+        });
+        if (!loggedIn) {
+          save("quad-theme", input.value);
+        } else if (window.fetch) {
+          fetch(themeDial.action, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: "theme=" + encodeURIComponent(input.value),
+          });
+        }
+      });
+    });
+    themeDial.addEventListener("submit", function (e) {
+      if (window.fetch) e.preventDefault();
+    });
+  }
+
+  /* ---- Accent picker (Settings page) ---- */
+  var accentPicker = $("[data-accent-picker]");
+  if (accentPicker) {
+    var currentAccent = load("quad-accent", "orange");
+    $$("[data-accent-radio]", accentPicker).forEach(function (input) {
+      input.checked = input.value === currentAccent;
+      input.addEventListener("change", function () {
+        save("quad-accent", input.value);
+        if (input.value === "orange") d.documentElement.removeAttribute("data-accent");
+        else d.documentElement.setAttribute("data-accent", input.value);
+      });
+    });
+  }
+
   window.Quad = {
     saved: saved,
     following: following,

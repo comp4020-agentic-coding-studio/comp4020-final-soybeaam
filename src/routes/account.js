@@ -144,6 +144,16 @@ export default async function accountRoutes(app) {
     reply.redirect("/settings?flash=preferences#preferences");
   });
 
+  // Just the theme, for the sidebar dial. Separate from /settings/preferences
+  // so the dial doesn't need to resend language/timezone to pass validation.
+  app.post("/settings/theme", async (req, reply) => {
+    if (!req.user) return reply.code(401).send({ error: "not logged in" });
+    const theme = field(req.body ?? {}, "theme");
+    if (!THEMES.includes(theme)) return reply.code(400).send({ error: "invalid theme" });
+    updatePreferences(req.user.token, { theme });
+    reply.send({ ok: true, theme });
+  });
+
   app.post("/settings/password", async (req, reply) => {
     if (!req.user) return reply.redirect(LOGIN_FOR_SETTINGS);
     const body = req.body ?? {};

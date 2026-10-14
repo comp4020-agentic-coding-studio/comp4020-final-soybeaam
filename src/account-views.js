@@ -52,6 +52,16 @@ const THEME_OPTIONS = [
   { value: "dark", label: "Dark" },
 ];
 
+// Accent colour: kept in this browser's localStorage only (data-accent-picker
+// in client.js), not sent to the server, so it isn't part of preferencesForm's
+// POST and has no validation to match.
+const ACCENT_OPTIONS = [
+  { value: "orange", label: "Orange", swatch: "#e8623c" },
+  { value: "blue", label: "Blue", swatch: "#2563eb" },
+  { value: "green", label: "Green", swatch: "#16a34a" },
+  { value: "violet", label: "Violet", swatch: "#7c3aed" },
+];
+
 function eventList(events, isOwn) {
   if (!events.length) {
     return emptyState({
@@ -195,7 +205,20 @@ function preferencesForm(values, errors) {
       Email me about events I've checked in to
     </label>
     <div class="form-actions">${loadingButton("Save preferences", { loadingLabel: "Saving..." })}</div>
-  </form>`;
+  </form>
+  <div class="form-card" data-accent-picker aria-label="Accent colour">
+    <p class="field-label">Accent colour</p>
+    <p class="field-hint">Saved to this browser only.</p>
+    <div class="accent-options">
+      ${ACCENT_OPTIONS.map(
+        (a) => `<label class="accent-option">
+          <input type="radio" name="accent" value="${a.value}" data-accent-radio />
+          <span class="accent-swatch" style="background:${a.swatch}" aria-hidden="true"></span>
+          ${a.label}
+        </label>`,
+      ).join("")}
+    </div>
+  </div>`;
 }
 
 function securitySection(errors) {
