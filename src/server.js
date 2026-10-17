@@ -2,6 +2,8 @@ import Fastify from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import fastifyFormbody from "@fastify/formbody";
 import { readFileSync } from "node:fs";
+import { gzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
 import {
   findUserByEmail,
   userByToken,
@@ -242,8 +244,36 @@ app.get("/readme/", async (req, reply) => {
   reply.type("text/html").send(readmePage({ html: renderMarkdown(md), user: req.user }));
 });
 
+// Cached once (not just read once): style.css rarely changes at runtime, and
+// hashing/gzipping a ~200 KB file on every request would be wasted work. The
+// etag lets a repeat visitor skip the download entirely with a 304.
+let styleCache = null;
+function style() {
+  if (styleCache) return styleCache;
+  const raw = readFileSync(new URL("./style.css", import.meta.url), "utf8");
+  const buf = Buffer.from(raw, "utf8");
+  styleCache = {
+    buf,
+    gzip: gzipSync(buf),
+    etag: `"${createHash("sha1").update(buf).digest("hex")}"`,
+  };
+  return styleCache;
+}
+
 app.get("/style.css", async (req, reply) => {
-  reply.type("text/css").send(readFileSync(new URL("./style.css", import.meta.url), "utf8"));
+  const { buf, gzip, etag } = style();
+  reply.header("Cache-Control", "public, max-age=3600");
+  reply.header("ETag", etag);
+  if (req.headers["if-none-match"] === etag) {
+    reply.code(304);
+    return "";
+  }
+  reply.type("text/css");
+  if (/\bgzip\b/.test(req.headers["accept-encoding"] || "")) {
+    reply.header("Content-Encoding", "gzip");
+    return gzip;
+  }
+  return buf;
 });
 
 // Any URL no route matches. The root onRequest hook has already run, so the
