@@ -2,10 +2,12 @@
 // src/assets/event_images and are served from /event-images/:file (see
 // server.js), which only allows filenames present in ALL_EVENT_IMAGES.
 //
-// There's no cover_image column on events, so the picture is chosen
+// There's no cover_image column on events, so the picture is normally chosen
 // deterministically from category + slug: same event always gets the same
 // photo, and new events spread across each category's pool instead of all
-// landing on the first file.
+// landing on the first file. The seed events below are curated by hand in
+// EVENT_COVERS instead, since a category-only hash can't tell "techno
+// basement set" from "acoustic rooftop sunset" — both are just "Music".
 
 export const CATEGORY_IMAGES = {
   Social: [
@@ -87,8 +89,52 @@ function hash(str) {
   return h >>> 0;
 }
 
+// Hand-picked covers for the seed events, matched to what's actually in the
+// photo (not just its category) so events sharing a category don't end up
+// looking the same. Falls back to the category-hash pool for anything else
+// (e.g. events created through the app).
+const EVENT_COVERS = {
+  "neon-nights-sydney": "party-8.jpg",
+  "rooftop-sessions": "music-2.jpg",
+  "midnight-frequency": "party-10.jpg",
+  "sunset-sounds": "music-1.jpg",
+  "future-bass-festival": "party-6.jpg",
+
+  "ai-after-dark": "technology-2.jpg",
+  "futuretech-summit": "technology-8.jpg",
+  "startup-launch-night": "technology-6.jpg",
+  "cybersecurity-meetup": "technology-1.jpg",
+  "creative-coding-lab": "technology-7.jpg",
+
+  "friday-social-club": "social-7.jpg",
+  "rooftop-networking": "social-5.jpg",
+  "new-friends-night": "social-2.jpg",
+  "singles-and-strangers": "social-1.jpg",
+  "international-social": "social-6.jpg",
+  "welcome-mixer": "social-8.jpg",
+
+  "night-market-festival": "food-5.jpg",
+  "street-food-safari": "food-2.jpg",
+  "pasta-and-wine-night": "food-3.jpg",
+  "asian-fusion-pop-up": "food-1.jpg",
+
+  "digital-dreams": "art-4.jpg",
+  "immersive-art-night": "art-3.jpg",
+  "photography-walk": "sport-8.jpg",
+  "neon-canvas-exhibition": "party-2.jpg",
+
+  "community-football": "sport-3.jpg",
+  "night-basketball": "sport-12.jpg",
+  "run-club": "sport-13.jpg",
+  "surf-meetup": "sport-4.jpg",
+
+  "club-trivia-night": "quiz-trivia-3.jpg",
+  "study-sprint": "workshop-2.jpg",
+};
+
 export function coverImageFor(event) {
   if (!event?.slug) return undefined;
+  if (EVENT_COVERS[event.slug]) return EVENT_COVERS[event.slug];
   const pool = CATEGORY_IMAGES[event.category] ?? FALLBACK_POOL;
   if (!pool.length) return undefined;
   return pool[hash(event.slug) % pool.length];
