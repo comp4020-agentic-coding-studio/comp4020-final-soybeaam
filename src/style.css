@@ -1837,7 +1837,7 @@ textarea {
 .card-image {
   position: relative;
   aspect-ratio: 16 / 9;
-  background: var(--gradient-card);
+  background: var(--cover-img, none) center / cover, var(--gradient-card);
 }
 
 .card-body {
@@ -2643,7 +2643,8 @@ textarea {
   width: 3.25rem;
   height: 3.25rem;
   border-radius: var(--radius);
-  background: linear-gradient(135deg, hsl(var(--hue, 18) 70% 55%), hsl(calc(var(--hue, 18) + 45) 62% 34%));
+  background: var(--cover-img, none) center / cover,
+    linear-gradient(135deg, hsl(var(--hue, 18) 70% 55%), hsl(calc(var(--hue, 18) + 45) 62% 34%));
 }
 
 .mini-event-text {
@@ -2678,7 +2679,8 @@ textarea {
   padding: var(--space-6) var(--space-5) var(--space-5);
   border-radius: var(--radius-xl);
   color: #fff;
-  background: linear-gradient(135deg, hsl(var(--hue) 60% 30%), hsl(calc(var(--hue) + 45) 55% 15%));
+  background: var(--cover-img, none) center / cover,
+    linear-gradient(135deg, hsl(var(--hue) 60% 30%), hsl(calc(var(--hue) + 45) 55% 15%));
   box-shadow: var(--shadow-md);
 }
 
@@ -4093,7 +4095,8 @@ input.fselect,
   gap: var(--space-2);
   aspect-ratio: 16 / 8;
   padding: var(--space-3);
-  background: radial-gradient(90% 120% at 85% 0%, hsl(calc(var(--hue) + 30) 90% 70% / 0.65), transparent 60%),
+  background: var(--cover-img, none) center / cover,
+    radial-gradient(90% 120% at 85% 0%, hsl(calc(var(--hue) + 30) 90% 70% / 0.65), transparent 60%),
     linear-gradient(140deg, hsl(var(--hue) 72% 52%), hsl(calc(var(--hue) + 40) 60% 28%));
 }
 
@@ -4585,7 +4588,8 @@ input.fselect,
 .tk-main {
   padding: var(--space-5);
   color: #fff;
-  background: radial-gradient(90% 140% at 100% 0%, hsl(calc(var(--hue) + 30) 90% 65% / 0.45), transparent 60%),
+  background: var(--cover-img, none) center / cover,
+    radial-gradient(90% 140% at 100% 0%, hsl(calc(var(--hue) + 30) 90% 65% / 0.45), transparent 60%),
     linear-gradient(140deg, hsl(var(--hue) 62% 26%), hsl(calc(var(--hue) + 40) 55% 15%));
 }
 
@@ -4881,7 +4885,8 @@ input.fselect,
   display: block;
   height: 4.5rem;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  background: linear-gradient(140deg, hsl(var(--hue) 72% 52%), hsl(calc(var(--hue) + 40) 60% 28%));
+  background: var(--cover-img, none) center / cover,
+    linear-gradient(140deg, hsl(var(--hue) 72% 52%), hsl(calc(var(--hue) + 40) 60% 28%));
 }
 
 .emap-card-body {

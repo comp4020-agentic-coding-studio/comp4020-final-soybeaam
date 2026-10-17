@@ -1,4 +1,5 @@
 import { icon } from "./icons.js";
+import { coverImageFor } from "./event-images.js";
 
 // Escapes text for HTML bodies AND attribute values (quotes included).
 export const escape = (s = "") =>
@@ -582,9 +583,14 @@ export function eventCard(event, { attendeeCount } = {}) {
       ? `<span class="attendee-chip">${attendeeCount} checked in</span>`
       : "";
 
+  const hue = Number.isFinite(event?.cover_hue) ? event.cover_hue : 18;
+  const image = coverImageFor(event);
+  const coverStyle = image
+    ? `--hue:${hue};--cover-img:url(/event-images/${encodeURIComponent(image)})`
+    : `--hue:${hue}`;
+
   return `<article class="event-card">
-    <!-- Placeholder: real image upload isn't built yet, so this gradient block stands in for an event photo. -->
-    <div class="card-image" aria-hidden="true">
+    <div class="card-image" style="${coverStyle}" aria-hidden="true">
       <span class="price-badge">${escape(priceLabel(event.price_cents ?? 0))}</span>
     </div>
     <div class="card-body">

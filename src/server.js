@@ -21,6 +21,7 @@ import { verifyPassword } from "./auth.js";
 import { homePage, loginPage, newEventPage, payPage, readmePage, notFoundPage } from "./views.js";
 import { eventPage } from "./event-views.js";
 import { geocode, distanceFromCbdKm } from "./geocode.js";
+import { ALL_EVENT_IMAGES } from "./event-images.js";
 import {
   getEventFull,
   isMaybe,
@@ -274,6 +275,33 @@ app.get("/style.css", async (req, reply) => {
     return gzip;
   }
   return buf;
+});
+
+// Event cover photos. Cached per-filename like style.css, but never gzipped
+// (jpegs are already compressed). The route only accepts the exact filenames
+// event-images.js knows about, so req.params can't be used to read arbitrary
+// files from disk.
+const imageCache = new Map();
+app.get("/event-images/:file", async (req, reply) => {
+  const file = req.params.file;
+  if (!ALL_EVENT_IMAGES.has(file)) {
+    reply.code(404);
+    return "";
+  }
+  let entry = imageCache.get(file);
+  if (!entry) {
+    const buf = readFileSync(new URL(`./assets/event_images/${file}`, import.meta.url));
+    entry = { buf, etag: `"${createHash("sha1").update(buf).digest("hex")}"` };
+    imageCache.set(file, entry);
+  }
+  reply.header("Cache-Control", "public, max-age=86400");
+  reply.header("ETag", entry.etag);
+  if (req.headers["if-none-match"] === entry.etag) {
+    reply.code(304);
+    return "";
+  }
+  reply.type("image/jpeg");
+  return entry.buf;
 });
 
 // Any URL no route matches. The root onRequest hook has already run, so the

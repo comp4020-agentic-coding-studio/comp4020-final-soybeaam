@@ -6,7 +6,7 @@
 // host_email is never read. People are publicUser() objects (no email/token).
 import { escape, layout, avatar, pageHeader, emptyState, priceLabel, tabs } from "./views.js";
 import { icon } from "./icons.js";
-import { avatarStack, dayLabel, timeLabel, hueOf, STATUS, plural } from "./event-views.js";
+import { avatarStack, dayLabel, timeLabel, hueOf, coverStyle, STATUS, plural } from "./event-views.js";
 
 /* ------------------------------------------------------------------ */
 /* Shared pieces                                                       */
@@ -45,7 +45,7 @@ export function socialEventCard(e, { heading = "h3" } = {}) {
   const where = e.location
     ? `${escape(e.location)}${e.distance_km != null ? ` <span class="sx-km">${escape(e.distance_km)} km</span>` : ""}`
     : "Location to be confirmed";
-  return `<article class="sx-card" style="--hue:${hueOf(e)}">
+  return `<article class="sx-card" style="${coverStyle(e)}">
     <div class="sx-cover">
       ${e.category ? `<span class="sx-cat" style="--cat-hue:${catHue(e.category)}">${escape(e.category)}</span>` : ""}
       <span class="sx-price">${escape(priceLabel(price))}</span>
@@ -354,7 +354,7 @@ export function ticketsPage({ user, tickets = [] }) {
   const list = tickets
     .map((t) => {
       const e = t.event;
-      return `<li class="tk" style="--hue:${hueOf(e)}">
+      return `<li class="tk" style="${coverStyle(e)}">
         <div class="tk-main">
           <p class="tk-kicker">${escape(e.category ?? "Event")} ticket</p>
           <h2 class="tk-title"><a href="/events/${escape(e.slug)}">${escape(e.title)}</a></h2>
@@ -443,7 +443,7 @@ export function mapPage({ user, events = [] }) {
     )}</a>`;
   };
   const card = (e) => `<template data-emap-card="${escape(e.slug)}">
-      <div class="emap-card" style="--hue:${hueOf(e)}">
+      <div class="emap-card" style="${coverStyle(e)}">
         <span class="emap-card-cover" aria-hidden="true"></span>
         <div class="emap-card-body">
           <p class="emap-card-cat" style="--cat-hue:${catHue(e.category)}"><span class="fchip-dot" aria-hidden="true"></span>${escape(

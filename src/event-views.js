@@ -7,6 +7,7 @@
 // votes) is wired up by /client.js through the data-* hooks noted below.
 import { escape, layout, avatar, formatDate, tabs, accordion, loadingButton, priceLabel } from "./views.js";
 import { icon } from "./icons.js";
+import { coverImageFor } from "./event-images.js";
 
 /* ------------------------------------------------------------------ */
 /* Small formatting helpers                                            */
@@ -43,6 +44,15 @@ function whenLabel(e) {
 
 // Hue for gradients. Legacy events have no cover_hue, so they get the brand orange.
 export const hueOf = (e) => (Number.isFinite(e?.cover_hue) ? e.cover_hue : 18);
+
+// `--hue:N;--cover-img:url(...)` for the cover-photo CSS, or just `--hue:N`
+// when the event's category has no matching stock photo (the gradient alone
+// still applies, since --cover-img is unset).
+export function coverStyle(e) {
+  const image = coverImageFor(e);
+  const hue = `--hue:${hueOf(e)}`;
+  return image ? `${hue};--cover-img:url(/event-images/${encodeURIComponent(image)})` : hue;
+}
 
 export const iso = (at) => (at ? escape(String(at).replace(" ", "T") + "Z") : "");
 
@@ -113,7 +123,7 @@ const mutualLabel = (n) => (n > 0 ? plural(n, "mutual friend") : "No mutual frie
 // A compact event row with a gradient thumbnail. No host email, unlike eventCard().
 function miniEventCard(e) {
   const bits = [dayLabel(e.event_date), e.location].filter(Boolean).join(" · ");
-  return `<a class="mini-event" href="/events/${escape(e.slug)}" style="--hue:${hueOf(e)}">
+  return `<a class="mini-event" href="/events/${escape(e.slug)}" style="${coverStyle(e)}">
     <span class="mini-event-cover" aria-hidden="true"></span>
     <span class="mini-event-text">
       <strong>${escape(e.title)}</strong>
@@ -215,7 +225,7 @@ function hero({ user, event, people, checkedIn, maybe, chatCount }) {
         }</span></div>`
       : "";
 
-  return `<section class="ev-hero" style="--hue:${hueOf(event)}" aria-labelledby="ev-title">
+  return `<section class="ev-hero" style="${coverStyle(event)}" aria-labelledby="ev-title">
     <div class="ev-hero-art" aria-hidden="true"><span></span><span></span><span></span></div>
     <div class="ev-hero-inner">
       ${top ? `<div class="ev-pills">${top}</div>` : ""}
