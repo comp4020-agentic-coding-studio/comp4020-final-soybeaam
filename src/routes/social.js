@@ -14,6 +14,7 @@ import {
   community,
   myEvents,
   dmThreadsFor,
+  postDm,
   notificationsFor,
   ticketsFor,
   allAnnouncements,
@@ -203,6 +204,21 @@ export default async function socialRoutes(app) {
       200,
       messagesPage({ user: req.user, threads: dmThreadsFor(req.user), to, active: queryString(req, "thread").slice(0, 80) }),
     );
+  });
+
+  // Body fields: to (username, required), body (1..CHAT_MAX characters).
+  app.post("/messages/send", async (req, reply) => {
+    if (!requireLoginPost(req, reply, "/messages")) return;
+    const toName = field(req.body, "to");
+    const row = toName ? findUserByUsername(toName) : null;
+    const back = toName ? `/messages?to=${encodeURIComponent(toName)}` : "/messages";
+    if (!row || row.token === req.user.token) return fail(req, reply, 400, "That person can't be messaged.", back);
+    const body = field(req.body, "body");
+    if (!body) return fail(req, reply, 400, "Write a message first.", back);
+    if (body.length > CHAT_MAX) return fail(req, reply, 400, `Keep messages to ${CHAT_MAX} characters or fewer.`, back);
+    const message = postDm(req.user.token, row.token, body);
+    if (wantsJson(req)) return reply.code(201).send(message);
+    reply.redirect(back);
   });
 
   app.get("/notifications", async (req, reply) => {
