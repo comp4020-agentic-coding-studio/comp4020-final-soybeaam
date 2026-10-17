@@ -68,7 +68,7 @@ function requireLoginPost(req, reply, back) {
 
 function fail(req, reply, code, text, back) {
   if (wantsJson(req)) return reply.code(code).send({ error: text });
-  html(reply, code, formErrorPage({ user: req.user, text, back }));
+  html(reply, code, formErrorPage({ user: req.user, theme: req.guestTheme, text, back }));
 }
 
 function queryString(req, key) {
@@ -151,6 +151,7 @@ export default async function socialRoutes(app) {
       200,
       discoverPage({
         user: req.user,
+        theme: req.guestTheme,
         events: applyDiscoverFilters(all, filters),
         all,
         filters,
@@ -166,29 +167,29 @@ export default async function socialRoutes(app) {
     html(
       reply,
       200,
-      myEventsPage({ user: req.user, going: withFaces(mine.going), maybe: withFaces(mine.maybe), hosted: withFaces(mine.hosted) }),
+      myEventsPage({ user: req.user, theme: req.guestTheme, going: withFaces(mine.going), maybe: withFaces(mine.maybe), hosted: withFaces(mine.hosted) }),
     );
   });
 
   // Which events are saved is only known in the browser, so every upcoming
   // event is rendered and client.js hides the unsaved ones.
   app.get("/saved", async (req, reply) => {
-    html(reply, 200, savedPage({ user: req.user, events: withFaces(listSocialEvents().filter((e) => !e.is_past)) }));
+    html(reply, 200, savedPage({ user: req.user, theme: req.guestTheme, events: withFaces(listSocialEvents().filter((e) => !e.is_past)) }));
   });
 
   app.get("/map", async (req, reply) => {
     const events = listSocialEvents().filter((e) => !e.is_past);
-    html(reply, 200, mapPage({ user: req.user, events }));
+    html(reply, 200, mapPage({ user: req.user, theme: req.guestTheme, events }));
   });
 
   app.get("/communities", async (req, reply) => {
-    html(reply, 200, communitiesPage({ user: req.user, communities: communities() }));
+    html(reply, 200, communitiesPage({ user: req.user, theme: req.guestTheme, communities: communities() }));
   });
 
   app.get("/communities/:slug", async (req, reply) => {
     const c = community(req.params.slug, req.user?.token ?? null);
-    if (!c) return html(reply, 404, notFoundPage({ user: req.user, text: COMMUNITY_NOT_FOUND }));
-    html(reply, 200, communityPage({ user: req.user, community: { ...c, events: withFaces(c.events) } }));
+    if (!c) return html(reply, 404, notFoundPage({ user: req.user, theme: req.guestTheme, text: COMMUNITY_NOT_FOUND }));
+    html(reply, 200, communityPage({ user: req.user, theme: req.guestTheme, community: { ...c, events: withFaces(c.events) } }));
   });
 
   app.get("/messages", async (req, reply) => {
@@ -201,18 +202,18 @@ export default async function socialRoutes(app) {
     html(
       reply,
       200,
-      messagesPage({ user: req.user, threads: dmThreadsFor(req.user), to, active: queryString(req, "thread").slice(0, 80) }),
+      messagesPage({ user: req.user, theme: req.guestTheme, threads: dmThreadsFor(req.user), to, active: queryString(req, "thread").slice(0, 80) }),
     );
   });
 
   app.get("/notifications", async (req, reply) => {
     if (!requireLogin(req, reply, "/notifications")) return;
-    html(reply, 200, notificationsPage({ user: req.user, notifications: notificationsFor(req.user) }));
+    html(reply, 200, notificationsPage({ user: req.user, theme: req.guestTheme, notifications: notificationsFor(req.user) }));
   });
 
   app.get("/tickets", async (req, reply) => {
     if (!requireLogin(req, reply, "/tickets")) return;
-    html(reply, 200, ticketsPage({ user: req.user, tickets: ticketsFor(req.user) }));
+    html(reply, 200, ticketsPage({ user: req.user, theme: req.guestTheme, tickets: ticketsFor(req.user) }));
   });
 
   app.get("/announcements", async (req, reply) => {
@@ -221,6 +222,7 @@ export default async function socialRoutes(app) {
       200,
       announcementsPage({
         user: req.user,
+        theme: req.guestTheme,
         // can_manage decides whether the Pin button shows. The pin route
         // checks the same rule again on every post.
         announcements: allAnnouncements().map((a) => ({
@@ -233,7 +235,7 @@ export default async function socialRoutes(app) {
   });
 
   app.get("/activity", async (req, reply) => {
-    html(reply, 200, activityPage({ user: req.user, items: activityFeed(40) }));
+    html(reply, 200, activityPage({ user: req.user, theme: req.guestTheme, items: activityFeed(40) }));
   });
 
   /* ---- Actions ---- */
@@ -243,7 +245,7 @@ export default async function socialRoutes(app) {
     const event = getEvent(req.params.slug);
     if (!event) {
       if (wantsJson(req)) return reply.code(404).send({ error: EVENT_NOT_FOUND });
-      return html(reply, 404, notFoundPage({ user: req.user, text: EVENT_NOT_FOUND }));
+      return html(reply, 404, notFoundPage({ user: req.user, theme: req.guestTheme, text: EVENT_NOT_FOUND }));
     }
     const eventPath = `/events/${event.slug}`;
     if (!requireLoginPost(req, reply, eventPath)) return;
@@ -304,7 +306,7 @@ export default async function socialRoutes(app) {
     if (!requireLoginPost(req, reply, back)) return;
     if (!canManageEvent(req.user, event)) {
       if (wantsJson(req)) return reply.code(403).send({ error: "Only the host or an admin can post here." });
-      return html(reply, 403, forbiddenPage({ user: req.user }));
+      return html(reply, 403, forbiddenPage({ user: req.user, theme: req.guestTheme }));
     }
     const values = readAnnouncement(req, reply, back);
     if (!values) return;
@@ -318,7 +320,7 @@ export default async function socialRoutes(app) {
     if (!requireLoginPost(req, reply, "/announcements")) return;
     if (req.user.role !== "admin") {
       if (wantsJson(req)) return reply.code(403).send({ error: "Admins only." });
-      return html(reply, 403, forbiddenPage({ user: req.user }));
+      return html(reply, 403, forbiddenPage({ user: req.user, theme: req.guestTheme }));
     }
     const values = readAnnouncement(req, reply, "/announcements");
     if (!values) return;
@@ -338,7 +340,7 @@ export default async function socialRoutes(app) {
     const allowed = ann.event_slug ? canManageEvent(req.user, { slug: ann.event_slug }) : req.user.role === "admin";
     if (!allowed) {
       if (wantsJson(req)) return reply.code(403).send({ error: "Only the host or an admin can pin this." });
-      return html(reply, 403, forbiddenPage({ user: req.user }));
+      return html(reply, 403, forbiddenPage({ user: req.user, theme: req.guestTheme }));
     }
     const pinned = togglePin(id);
     if (wantsJson(req)) return reply.send({ id, pinned });

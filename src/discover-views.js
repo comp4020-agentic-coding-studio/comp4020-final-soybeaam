@@ -152,7 +152,7 @@ function communityStrip(list) {
 //        Non-matching ones are rendered hidden so client-side filtering can
 //        widen the results without a reload.
 //   filters: {q, category, when, price, sort, date, within, friends}
-export function discoverPage({ user, events, all = events, filters = {}, categories = [], communities = [] }) {
+export function discoverPage({ user, events, all = events, filters = {}, categories = [], communities = [], theme = "system" }) {
   const f = filters;
   const shown = new Set(events.map((e) => e.slug));
   const soonIndex = new Map(all.map((e, i) => [e.slug, i]));
@@ -166,6 +166,7 @@ export function discoverPage({ user, events, all = events, filters = {}, categor
   return layout({
     title: "Discover",
     user,
+    theme,
     active: "discover",
     bodyClass: "page-discover",
     scripts: ["/pages.js"],
@@ -258,10 +259,11 @@ export function discoverPage({ user, events, all = events, filters = {}, categor
 // savedPage({user, events}): every upcoming event, all hidden. pages.js shows
 // the ones in localStorage (quad:saved) and keeps the list in step with the
 // Save buttons.
-export function savedPage({ user, events = [] }) {
+export function savedPage({ user, events = [], theme = "system" }) {
   return layout({
     title: "Saved",
     user,
+    theme,
     active: "saved",
     scripts: ["/pages.js"],
     body: `${pageHeader({
@@ -286,12 +288,13 @@ export function savedPage({ user, events = [] }) {
 /* ------------------------------------------------------------------ */
 
 // myEventsPage({user, going, maybe, hosted}): event arrays.
-export function myEventsPage({ user, going = [], maybe = [], hosted = [] }) {
+export function myEventsPage({ user, going = [], maybe = [], hosted = [], theme = "system" }) {
   const panel = (list, empty) => (list.length ? cardGrid(list) : emptyState(empty));
   const stat = (n, label) => `<li><strong>${n}</strong><span>${escape(label)}</span></li>`;
   return layout({
     title: "My events",
     user,
+    theme,
     active: "my-events",
     body: `${pageHeader({
       title: "My events",
@@ -350,7 +353,7 @@ function qrPattern(code) {
 }
 
 // ticketsPage({user, tickets}): [{code, event, holder, price_cents, is_free}].
-export function ticketsPage({ user, tickets = [] }) {
+export function ticketsPage({ user, tickets = [], theme = "system" }) {
   const list = tickets
     .map((t) => {
       const e = t.event;
@@ -378,6 +381,7 @@ export function ticketsPage({ user, tickets = [] }) {
   return layout({
     title: "Tickets",
     user,
+    theme,
     active: "tickets",
     body: `${pageHeader({
       title: "Tickets",
@@ -423,7 +427,7 @@ const CITY_SVG = `<svg class="map-art emap-art" viewBox="0 0 1000 625" preserveA
 // mapPage({user, events}): events carry details.map_x / details.map_y (0..100,
 // or null outside the drawing) and lat / lng (or null). The drawing only pins
 // events inside its box; maps.js puts every event with lat/lng on the real map.
-export function mapPage({ user, events = [] }) {
+export function mapPage({ user, events = [], theme = "system" }) {
   const onDrawing = (e) => e.details?.map_x != null && e.details?.map_y != null;
   const hasCoords = (e) => e.lat != null && e.lng != null && Number.isFinite(Number(e.lat)) && Number.isFinite(Number(e.lng));
   const placed = events.filter(onDrawing);
@@ -471,6 +475,7 @@ export function mapPage({ user, events = [] }) {
   return layout({
     title: "Event Map",
     user,
+    theme,
     active: "map",
     bodyClass: "page-map",
     scripts: ["/pages.js", "/maps.js"],

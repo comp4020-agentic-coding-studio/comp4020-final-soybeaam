@@ -432,6 +432,40 @@ function sidebarUser(user, active) {
   </div>`;
 }
 
+// Light/dark/system dial shown in the sidebar on every page. A real radio
+// group (works with no JS, posts to /settings/theme) that client.js upgrades
+// to flip data-theme immediately instead of waiting for the page reload.
+// Runs in <head>, before the stylesheet, so there's no flash of the wrong
+// colours. The server already rendered data-theme (from the DB for logged-in
+// users, from the theme cookie for guests); this only applies the accent
+// colour, which is never stored server-side for anyone.
+const THEME_HEAD_SCRIPT = `(function(){try{
+    var d=document.documentElement;
+    var a=localStorage.getItem("quad-accent");
+    if(a&&a!=="orange")d.setAttribute("data-accent",a);
+  }catch(e){}})();`;
+
+function themeDial(theme, user) {
+  const options = [
+    { value: "light", label: "Light", icon: "sun" },
+    { value: "system", label: "Auto", icon: "circle-half" },
+    { value: "dark", label: "Dark", icon: "moon" },
+  ];
+  return `<form class="theme-dial" method="post" action="/settings/theme" data-theme-dial${
+    user ? ` data-logged-in` : ""
+  } aria-label="Colour theme">
+    ${options
+      .map(
+        (o) => `<label class="theme-dial-option${theme === o.value ? " is-active" : ""}">
+          <input type="radio" name="theme" value="${o.value}" ${theme === o.value ? "checked" : ""} />
+          <span class="visually-hidden">${o.label}</span>
+          ${icon(o.icon, "icon")}
+        </label>`,
+      )
+      .join("")}
+  </form>`;
+}
+
 function siteFooter(user) {
   return `<footer class="site-footer">
     <div class="footer-inner">
@@ -508,15 +542,26 @@ export function demoTag(isDemo) {
   return isDemo ? ` <span class="demo-tag" title="Dummy data seeded for the demo">DEMO</span>` : "";
 }
 
-// layout({title, user, body, active, bodyClass, scripts}): full page shell with
+// layout({title, user, theme, body, active, bodyClass, scripts}): full page shell with
 // the app sidebar. active is a sidebar key: "home" | "discover" | "my-events" |
 // "saved" | "map" | "communities" | "messages" | "notifications" | "tickets" |
 // "announcements" | "activity" | "settings" | "host" | "admin" | "profile".
 // "events" is the older name for "home" and still works. scripts: extra
 // deferred scripts loaded after /client.js (see PAGE_SCRIPTS). "/maps.js" also
 // brings in the MapLibre script and stylesheet.
-export function layout({ title = "Quad", user = null, body = "", active = "", bodyClass = "", scripts = [] }) {
-  const theme = user && THEMES.has(user.theme) ? user.theme : "system";
+// theme is the guest's cookie theme (req.guestTheme); it is only used when
+// there is no logged-in user, since their DB preference wins.
+export function layout({
+  title = "Quad",
+  user = null,
+  theme: guestTheme = "system",
+  body = "",
+  active = "",
+  bodyClass = "",
+  scripts = [],
+}) {
+  const theme =
+    user && THEMES.has(user.theme) ? user.theme : !user && THEMES.has(guestTheme) ? guestTheme : "system";
   const fullTitle = /^quad\b/i.test(title) || /\bquad$/i.test(title) ? title : `${title} · Quad`;
   const key = active === "events" ? "home" : active;
   const hostOn = key === "host";
@@ -529,6 +574,7 @@ export function layout({ title = "Quad", user = null, body = "", active = "", bo
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>${escape(fullTitle)}</title>
+    <script>${THEME_HEAD_SCRIPT}</script>
     <link rel="stylesheet" href="/style.css" />${
       pageScripts.includes("/maps.js")
         ? `\n    <link rel="stylesheet" href="${MAPLIBRE.css}" integrity="${MAPLIBRE.cssHash}" crossorigin="anonymous" />`
@@ -554,6 +600,7 @@ export function layout({ title = "Quad", user = null, body = "", active = "", bo
         hostOn ? ` aria-current="page"` : ""
       }>${icon("host")}Host an event</a>
       <nav class="sb-scroll" aria-label="Main">${sidebarNav(user, key)}</nav>
+      ${themeDial(theme, user)}
       ${sidebarUser(user, key)}
     </aside>
     <div class="app-main">
@@ -794,6 +841,7 @@ function homeCarousel(featured, heading) {
 // flash: a key of HOME_FLASH (anything else is ignored).
 export function homePage({
   user,
+  theme = "system",
   events,
   sort,
   category,
@@ -848,6 +896,7 @@ export function homePage({
   return layout({
     title: "Quad | events",
     user,
+    theme,
     active: "events",
     body: `
       ${
@@ -892,13 +941,14 @@ export function homePage({
 // loginPage({error, email, field, next}): error is the server message (shown in
 // a callout and, when field is "email" or "password", under that field too).
 // email re-fills the form; next is an already-validated relative path.
-export function loginPage({ error = "", email = "", field = "", next = "" } = {}) {
+export function loginPage({ error = "", email = "", field = "", next = "", theme = "system" } = {}) {
   const emailError = error && field === "email" ? error : "";
   const passwordError = error && field === "password" ? "Check your email and password, then try again." : "";
 
   return layout({
     title: "Log in",
     user: null,
+    theme,
     bodyClass: "page-auth",
     body: `
       <div class="auth-wrap">
@@ -971,10 +1021,11 @@ export function loginPage({ error = "", email = "", field = "", next = "" } = {}
   });
 }
 
-export function newEventPage({ user, categories }) {
+export function newEventPage({ user, categories, theme = "system" }) {
   return layout({
     title: "Host an event",
     user,
+    theme,
     active: "host",
     body: `
       ${pageHeader({
@@ -1033,11 +1084,12 @@ export function newEventPage({ user, categories }) {
 // "priced" events have a visibly distinct step from free ones, standing in
 // for a real checkout until one gets built (see README's "what I chose not
 // to build").
-export function payPage({ user, event }) {
+export function payPage({ user, event, theme = "system" }) {
   const amount = escape(priceLabel(event.price_cents ?? 0));
   return layout({
     title: `Pay for ${event.title}`,
     user,
+    theme,
     active: "events",
     body: `
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Events</a><span aria-hidden="true">/</span><a href="/events/${escape(
@@ -1076,19 +1128,21 @@ export function payPage({ user, event }) {
 
 // notFoundPage({user, text}): shared 404 page, used for unknown URLs, events,
 // profiles and admin user lookups.
-export function notFoundPage({ user = null, text = "That page doesn't exist, or it was removed." } = {}) {
+export function notFoundPage({ user = null, text = "That page doesn't exist, or it was removed.", theme = "system" } = {}) {
   return layout({
     title: "Not found",
     user,
+    theme,
     body: errorState({ title: "Not found", text, action: { href: "/", label: "Back to events" } }),
   });
 }
 
 // forbiddenPage({user}): 403 for a logged-in user who isn't an admin.
-export function forbiddenPage({ user = null } = {}) {
+export function forbiddenPage({ user = null, theme = "system" } = {}) {
   return layout({
     title: "Admins only",
     user,
+    theme,
     body: errorState({
       title: "Admins only",
       text: "You need an admin account to see this page.",
@@ -1098,10 +1152,11 @@ export function forbiddenPage({ user = null } = {}) {
 }
 
 // readmePage({html, user}): README rendered inside the shared layout, untouched.
-export function readmePage({ html, user = null }) {
+export function readmePage({ html, user = null, theme = "system" }) {
   return layout({
     title: "About Quad",
     user,
+    theme,
     body: `<article class="prose readme">
       ${html}
     </article>`,

@@ -52,6 +52,16 @@ const THEME_OPTIONS = [
   { value: "dark", label: "Dark" },
 ];
 
+// Accent colour: kept in this browser's localStorage only (data-accent-picker
+// in client.js), not sent to the server, so it isn't part of preferencesForm's
+// POST and has no validation to match.
+const ACCENT_OPTIONS = [
+  { value: "orange", label: "Orange", swatch: "#e8623c" },
+  { value: "blue", label: "Blue", swatch: "#2563eb" },
+  { value: "green", label: "Green", swatch: "#16a34a" },
+  { value: "violet", label: "Violet", swatch: "#7c3aed" },
+];
+
 function eventList(events, isOwn) {
   if (!events.length) {
     return emptyState({
@@ -73,7 +83,7 @@ function eventList(events, isOwn) {
 
 // profilePage({viewer, profile, events, isOwn}): read-only profile. viewer is
 // the logged-in user (or null), profile the user being shown.
-export function profilePage({ viewer, profile, events, isOwn }) {
+export function profilePage({ viewer, profile, events, isOwn, theme = "system" }) {
   const name = displayName(profile);
   const interests = parseInterests(profile.interests);
   const joined = formatDate(profile.created_at);
@@ -107,6 +117,7 @@ export function profilePage({ viewer, profile, events, isOwn }) {
   return layout({
     title: isOwn ? "Your profile" : name,
     user: viewer,
+    theme,
     active: isOwn ? "profile" : "",
     body: `<div class="profile-page stack-lg stack">
       ${hero}
@@ -195,7 +206,20 @@ function preferencesForm(values, errors) {
       Email me about events I've checked in to
     </label>
     <div class="form-actions">${loadingButton("Save preferences", { loadingLabel: "Saving..." })}</div>
-  </form>`;
+  </form>
+  <div class="form-card" data-accent-picker aria-label="Accent colour">
+    <p class="field-label">Accent colour</p>
+    <p class="field-hint">Saved to this browser only.</p>
+    <div class="accent-options">
+      ${ACCENT_OPTIONS.map(
+        (a) => `<label class="accent-option">
+          <input type="radio" name="accent" value="${a.value}" data-accent-radio />
+          <span class="accent-swatch" style="background:${a.swatch}" aria-hidden="true"></span>
+          ${a.label}
+        </label>`,
+      ).join("")}
+    </div>
+  </div>`;
 }
 
 function securitySection(errors) {
@@ -292,7 +316,7 @@ const SETTINGS_SCRIPT = `<script>
 // settingsPage({user, values, errors, flash, tab}): values/errors are keyed by
 // section ("profile", "preferences", "security"). Sections without values fall
 // back to the saved user row. tab names the section that failed, if any.
-export function settingsPage({ user, values = {}, errors = {}, flash = "", tab = "" }) {
+export function settingsPage({ user, values = {}, errors = {}, flash = "", tab = "", theme = "system" }) {
   const profileValues = values.profile ?? {
     name: user.name ?? "",
     username: user.username ?? "",
@@ -319,6 +343,7 @@ export function settingsPage({ user, values = {}, errors = {}, flash = "", tab =
   return layout({
     title: "Settings",
     user,
+    theme,
     active: "settings",
     body: `
       ${flashToast(FLASH, flash)}

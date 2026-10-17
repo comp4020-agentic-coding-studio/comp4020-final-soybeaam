@@ -703,6 +703,7 @@ function chatPanel({ user, event, chat, people }) {
 // with nothing to show (a title-only event, say) are left out.
 export function eventPage({
   user,
+  theme = "system",
   event,
   attendees = [],
   checkedIn = false,
@@ -717,6 +718,7 @@ export function eventPage({
   return layout({
     title: event.title,
     user,
+    theme,
     active: "home",
     bodyClass: "page-event",
     scripts: hasCoords(event) ? ["/maps.js"] : [],

@@ -58,7 +58,7 @@ function timeTag(s) {
 /* ------------------------------------------------------------------ */
 
 // adminLoginPage({user, error, username}): dev-only login form.
-export function adminLoginPage({ user = null, error = "", username = "" } = {}) {
+export function adminLoginPage({ user = null, error = "", username = "", theme = "system" } = {}) {
   const body = `<div class="admin-login">
     ${pageHeader({ eyebrow: "Admin", title: "Admin login" })}
     <div class="callout callout-warning admin-dev-banner" role="note">
@@ -84,14 +84,15 @@ export function adminLoginPage({ user = null, error = "", username = "" } = {}) 
     </form>
     <p class="muted">An admin account with a password can also log in here, or through the normal <a href="/login">login page</a>.</p>
   </div>`;
-  return layout({ title: "Admin login", user, body, active: "admin" });
+  return layout({ title: "Admin login", user, theme, body, active: "admin" });
 }
 
 // adminLoginDisabledPage({user}): shown instead of the form when the dev login is off.
-export function adminLoginDisabledPage({ user = null } = {}) {
+export function adminLoginDisabledPage({ user = null, theme = "system" } = {}) {
   return layout({
     title: "Admin login unavailable",
     user,
+    theme,
     body: errorState({
       title: "Admin login is turned off here",
       text: "The admin / admin login only works in local development. Admins on this site log in through the normal login page.",
@@ -208,7 +209,7 @@ function usersTable(users, me) {
 }
 
 // adminDashboardPage({user, stats, activity, users, filters, flash})
-export function adminDashboardPage({ user, stats, activity, users, filters = {}, flash = "" }) {
+export function adminDashboardPage({ user, stats, activity, users, filters = {}, flash = "", theme = "system" }) {
   const { q = "", role = "", sort = "" } = filters;
   const count = `${users.length} ${users.length === 1 ? "user" : "users"}`;
   const body = `${flashToast(FLASH, flash)}
@@ -231,7 +232,7 @@ export function adminDashboardPage({ user, stats, activity, users, filters = {},
             })
       }
     </section>`;
-  return layout({ title: "Admin", user, body, active: "admin" });
+  return layout({ title: "Admin", user, theme, body, active: "admin" });
 }
 
 /* ------------------------------------------------------------------ */
@@ -242,7 +243,7 @@ export function adminDashboardPage({ user, stats, activity, users, filters = {},
 // target: the row being edited (for read-only details). id: the URL key it was
 // loaded by, so a failed save posts back to the same address even if the
 // username field was changed. values: what goes in the inputs.
-export function adminEditUserPage({ user, target, id, values, errors = {}, formError = "" }) {
+export function adminEditUserPage({ user, target, id, values, errors = {}, formError = "", theme = "system" }) {
   const isSelf = target.email === user.email;
   const body = `${pageHeader({
     eyebrow: "Admin",
@@ -282,5 +283,5 @@ export function adminEditUserPage({ user, target, id, values, errors = {}, formE
         <a class="button button-ghost" href="/admin">Cancel</a>
       </div>
     </form>`;
-  return layout({ title: `Edit ${displayName(target)}`, user, body, active: "admin" });
+  return layout({ title: `Edit ${displayName(target)}`, user, theme, body, active: "admin" });
 }
