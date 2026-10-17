@@ -72,6 +72,18 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS chat_messages_room ON chat_messages(room, created_at);
 
+  -- thread_id is the two participants' tokens, sorted and joined with ":",
+  -- so both people always land on the same thread regardless of who sent.
+  CREATE TABLE IF NOT EXISTS dm_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    thread_id TEXT NOT NULL,
+    from_token TEXT NOT NULL REFERENCES users(token),
+    to_token TEXT NOT NULL REFERENCES users(token),
+    body TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS dm_messages_thread ON dm_messages(thread_id, created_at);
+
   -- event_slug NULL means a global announcement.
   CREATE TABLE IF NOT EXISTS announcements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -701,16 +713,42 @@ export function peopleToMeet(user, slug = null, limit = 6) {
     .slice(0, limit);
 }
 
-// Direct-message threads for the Messages page (seeded, read-only).
+// Two users always land on the same thread id, however they got there.
+function dmThreadId(tokenA, tokenB) {
+  return [tokenA, tokenB].sort().join(":");
+}
+function otherTokenFromThread(threadId, myToken) {
+  const [a, b] = threadId.split(":");
+  return a === myToken ? b : a;
+}
+function dmRowsForThread(threadId, limit = 200) {
+  return db
+    .prepare("SELECT * FROM dm_messages WHERE thread_id = ? ORDER BY created_at ASC, id ASC LIMIT ?")
+    .all(threadId, limit);
+}
+
+// Sends a DM and persists it. Returns the stored row.
+export function postDm(fromToken, toToken, body) {
+  const res = db
+    .prepare("INSERT INTO dm_messages (thread_id, from_token, to_token, body) VALUES (?, ?, ?, ?)")
+    .run(dmThreadId(fromToken, toToken), fromToken, toToken, String(body));
+  return db.prepare("SELECT * FROM dm_messages WHERE id = ?").get(res.lastInsertRowid);
+}
+
+// Direct-message threads for the Messages page. Seeded conversations supply
+// backstory (read-only, kept for flavour); anything sent for real lands in
+// dm_messages and is appended on top, keyed by the same pair of users.
 // Each: {id, with: publicUser, messages: [{from: publicUser, body, at, is_mine}], last: {body, at}, unread: number}.
 // Accounts outside the seed get a single welcome thread from the admin account.
 export function dmThreadsFor(user) {
   if (!user) return [];
   const me = seedUsernameFor(user);
   const self = publicUser(user);
-  let threads = SEED_DMS.filter((t) => me && t.participants.includes(me));
-  if (!threads.length && me !== "admin") {
-    threads = [
+  const users = usersByToken();
+
+  let seedThreads = SEED_DMS.filter((t) => me && t.participants.includes(me));
+  if (!seedThreads.length && me !== "admin") {
+    seedThreads = [
       {
         id: "welcome",
         participants: ["admin", "__me"],
@@ -718,26 +756,71 @@ export function dmThreadsFor(user) {
       },
     ];
   }
-  return threads
+
+  const seededOtherTokens = new Set();
+  const built = seedThreads
     .map((t) => {
-      const other = t.participants.find((p) => p !== me && p !== "__me");
-      const messages = t.messages.map((m) => ({
+      const otherName = t.participants.find((p) => p !== me && p !== "__me");
+      const otherRow = otherName ? seedUserRow(otherName) : null;
+      const other = otherRow ? publicUser(otherRow) : seedPublic(otherName);
+      if (!other) return null;
+      if (otherRow) seededOtherTokens.add(otherRow.token);
+      const seedMessages = t.messages.map((m) => ({
         from: m.from === me ? self : seedPublic(m.from),
         body: m.body,
         at: minutesAgo(m.minutes_ago),
         is_mine: m.from === me,
       }));
+      const liveMessages = otherRow
+        ? dmRowsForThread(dmThreadId(user.token, otherRow.token)).map((r) => ({
+            from: r.from_token === user.token ? self : other,
+            body: r.body,
+            at: r.created_at,
+            is_mine: r.from_token === user.token,
+          }))
+        : [];
+      const messages = [...seedMessages, ...liveMessages];
       const last = messages[messages.length - 1];
       return {
         id: t.id,
-        with: seedPublic(other),
+        with: other,
+        with_username: otherRow?.username ?? other.username ?? null,
         messages,
         last: { body: last.body, at: last.at },
         unread: last.is_mine ? 0 : 1,
       };
     })
-    .filter((t) => t.with)
-    .sort((a, b) => (a.last.at < b.last.at ? 1 : -1));
+    .filter(Boolean);
+
+  // Real threads with people outside the seed set.
+  const threadRows = db
+    .prepare("SELECT DISTINCT thread_id FROM dm_messages WHERE from_token = ? OR to_token = ?")
+    .all(user.token, user.token);
+  for (const { thread_id } of threadRows) {
+    const otherToken = otherTokenFromThread(thread_id, user.token);
+    if (seededOtherTokens.has(otherToken)) continue;
+    const otherRow = users.get(otherToken);
+    const other = otherRow ? publicUser(otherRow) : null;
+    if (!other) continue;
+    const messages = dmRowsForThread(thread_id).map((r) => ({
+      from: r.from_token === user.token ? self : other,
+      body: r.body,
+      at: r.created_at,
+      is_mine: r.from_token === user.token,
+    }));
+    if (!messages.length) continue;
+    const last = messages[messages.length - 1];
+    built.push({
+      id: `dm-${thread_id}`,
+      with: other,
+      with_username: otherRow.username,
+      messages,
+      last: { body: last.body, at: last.at },
+      unread: last.is_mine ? 0 : 1,
+    });
+  }
+
+  return built.sort((a, b) => (a.last.at < b.last.at ? 1 : -1));
 }
 
 // {going, maybe, hosted}: event objects (listSocialEvents shape), soonest first.

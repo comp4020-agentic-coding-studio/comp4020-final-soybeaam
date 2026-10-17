@@ -348,23 +348,16 @@
     paintNotes();
   }
 
-  /* ---- Messages: switch threads, send (kept on this device) ---- */
+  /* ---- Messages: switch threads, send (persisted server-side) ---- */
 
   var dm = $("[data-dm]");
   if (dm) {
-    var dmKey = "quad:dms:" + dm.getAttribute("data-dm-user");
-    var dmRead = "quad:dm-read:" + dm.getAttribute("data-dm-user");
-    var store = load(dmKey, {});
-    var readThreads = load(dmRead, []);
     var threadList = $("[data-dm-threads]", dm);
     var form = $("[data-dm-form]", dm);
     var box = $("textarea", form);
+    var toField = $("[data-dm-to]", form);
     var pane = $(".dm-pane", dm);
 
-    var initials = function (name) {
-      var parts = String(name || "?").trim().split(/\s+/);
-      return (parts[0].charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : "")).toUpperCase();
-    };
     var bubble = function (m) {
       return '<li class="dm-msg is-mine"><p class="dm-bubble">' + esc(m.body) + '</p><span class="dm-time">You, ' +
         esc(new Date(m.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) + "</span></li>";
@@ -372,34 +365,10 @@
     var convFor = function (id) { return $('[data-dm-conv="' + CSS.escape(id) + '"]', dm); };
     var linkFor = function (id) { return $('[data-dm-open="' + CSS.escape(id) + '"]', dm); };
 
-    // Threads started on this device that the server doesn't know about
-    // (for example a ?to= chat from an earlier visit) are rebuilt here.
-    Object.keys(store).forEach(function (id) {
-      var t = store[id];
-      if (convFor(id) || !t || !t.with) return;
-      threadList.insertAdjacentHTML("afterbegin", '<li><a class="dm-thread" href="/messages?to=' + encodeURIComponent(t.with.username) +
-        '" data-dm-open="' + esc(id) + '"><span class="avatar-wrap"><span class="avatar avatar-md" aria-hidden="true">' + esc(initials(t.with.name)) +
-        '</span></span><span class="dm-thread-text"><span class="dm-thread-top"><strong>' + esc(t.with.name) +
-        '</strong></span><span class="dm-thread-last" data-dm-last></span></span></a></li>');
-      form.insertAdjacentHTML("beforebegin", '<div class="dm-conv" data-dm-conv="' + esc(id) + '" data-with-username="' + esc(t.with.username) +
-        '" data-with-name="' + esc(t.with.name) + '" hidden><header class="dm-head"><a class="icon-button dm-back" href="/messages" data-dm-back aria-label="All conversations">' +
-        '<svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>' +
-        '<a class="person-main dm-who" href="/profile/' + encodeURIComponent(t.with.username) + '"><span class="avatar avatar-md" aria-hidden="true">' + esc(initials(t.with.name)) +
-        '</span><span class="person-text"><strong class="person-name">' + esc(t.with.name) + '</strong><span class="person-meta">@' + esc(t.with.username) +
-        '</span></span></a></header><ol class="dm-log" data-dm-log aria-label="Messages with ' + esc(t.with.name) + '"></ol></div>');
-    });
-
-    // Stored messages go after the seeded ones.
-    Object.keys(store).forEach(function (id) {
-      var conv = convFor(id), t = store[id];
-      if (!conv || !t || !t.messages || !t.messages.length) return;
-      var log = $("[data-dm-log]", conv);
-      var empty = $("[data-dm-empty]", log);
-      if (empty) empty.remove();
-      log.insertAdjacentHTML("beforeend", t.messages.map(bubble).join(""));
-      var last = $("[data-dm-last]", linkFor(id));
-      if (last) last.textContent = "You: " + t.messages[t.messages.length - 1].body;
-    });
+    // Which threads have been opened on this device. Cosmetic only (the
+    // messages themselves live server-side); losing it just re-shows a badge.
+    var dmRead = "quad:dm-read:" + dm.getAttribute("data-dm-user");
+    var readThreads = load(dmRead, []);
 
     var current = function () { return $(".dm-conv:not([hidden])", dm); };
     var scrollLog = function () { var c = current(); if (c) { var l = $("[data-dm-log]", c); l.scrollTop = l.scrollHeight; } };
@@ -421,6 +390,7 @@
       dm.setAttribute("data-view", "thread");
       markRead(id);
       scrollLog();
+      if (toField) toField.value = conv.getAttribute("data-with-username") || "";
       history.replaceState(null, "", "/messages?thread=" + encodeURIComponent(id));
       if (focus) box.focus({ preventScroll: true });
     };
@@ -455,13 +425,10 @@
       e.preventDefault();
       var body = box.value.trim();
       var conv = current();
-      if (!body || !conv) return;
+      var to = conv ? conv.getAttribute("data-with-username") : "";
+      if (!body || !conv || !to) return;
       var id = conv.getAttribute("data-dm-conv");
-      var t = store[id] || { with: { username: conv.getAttribute("data-with-username"), name: conv.getAttribute("data-with-name") }, messages: [] };
       var m = { body: body.slice(0, 1000), at: Date.now() };
-      t.messages.push(m);
-      store[id] = t;
-      save(dmKey, store);
       var log = $("[data-dm-log]", conv);
       var empty = $("[data-dm-empty]", log);
       if (empty) empty.remove();
@@ -470,6 +437,11 @@
       var last = $("[data-dm-last]", linkFor(id));
       if (last) last.textContent = "You: " + m.body;
       box.value = "";
+      fetch("/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ to: to, body: m.body }),
+      }).catch(function () {});
     });
     if (pane && !current()) form.hidden = true;
   }

@@ -35,7 +35,7 @@ function threadItem(t, activeId) {
 
 function conversation(t, activeId) {
   const w = t.with;
-  return `<div class="dm-conv" data-dm-conv="${escape(t.id)}" data-with-username="${escape(w.username ?? "")}" data-with-name="${escape(
+  return `<div class="dm-conv" data-dm-conv="${escape(t.id)}" data-with-username="${escape(t.with_username ?? w.username ?? "")}" data-with-name="${escape(
     w.display_name,
   )}"${t.id === activeId ? "" : " hidden"}>
       <header class="dm-head">
@@ -69,7 +69,7 @@ function conversation(t, activeId) {
 //   to: optional publicUser from /messages?to=<username>. Opens their thread,
 //       or starts an empty one (kept on this device by pages.js).
 //   active: thread id from /messages?thread=<id>.
-// Sending is client-side only (pages.js, localStorage per viewer).
+// Sending posts to /messages/send and is persisted server-side (dm_messages).
 export function messagesPage({ user, threads = [], to = null, active = "", theme = "system" }) {
   const list = threads.map((t) => ({ ...t, last: t.last ? { ...t.last, is_mine: t.messages.at(-1)?.is_mine } : null }));
   let activeId = list.some((t) => t.id === active) ? active : "";
@@ -102,12 +102,12 @@ export function messagesPage({ user, threads = [], to = null, active = "", theme
         </section>
         <section class="panel dm-pane" aria-label="Conversation">
           ${list.map((t) => conversation(t, activeId)).join("")}
-          <form class="dm-compose js-only" data-dm-form>
+          <form class="dm-compose" method="post" action="/messages/send" data-dm-form>
+            <input type="hidden" name="to" data-dm-to value="${escape(list.find((t) => t.id === activeId)?.with_username ?? "")}" />
             <label class="visually-hidden" for="dm-body">Message</label>
             <textarea id="dm-body" name="body" rows="1" maxlength="1000" required placeholder="Write a message"></textarea>
             <button type="submit" class="button chat-send" aria-label="Send">${icon("send")}</button>
           </form>
-          <p class="dm-note">Messages you send are kept on this device only.<span class="nojs-only"> Sending needs JavaScript.</span></p>
         </section>
       </div>`
           : emptyState({ title: "No messages yet", text: "Open someone's profile from an event or community and tap Message.", action: { href: "/discover", label: "Find people at events" } })
