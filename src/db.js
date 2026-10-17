@@ -17,6 +17,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     token TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
+    is_demo INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -29,6 +30,7 @@ db.exec(`
     category TEXT,
     price_cents INTEGER NOT NULL DEFAULT 0,
     created_by TEXT,
+    is_demo INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -54,6 +56,15 @@ if (!existingColumns.has("category")) {
 }
 if (!existingColumns.has("price_cents")) {
   db.exec("ALTER TABLE events ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0");
+}
+if (!existingColumns.has("is_demo")) {
+  db.exec("ALTER TABLE events ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0");
+}
+const userColumnsPre = new Set(
+  db.prepare("PRAGMA table_info(users)").all().map((c) => c.name),
+);
+if (!userColumnsPre.has("is_demo")) {
+  db.exec("ALTER TABLE users ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0");
 }
 
 // Same pattern for the account columns on users. Every database before the
@@ -213,6 +224,47 @@ export const CATEGORIES = [
   "Food",
   "Art",
 ];
+
+// Demo data: dummy hosts and attendees for the seeded events, flagged with
+// is_demo so the UI can label them and nobody mistakes them for real people.
+// This runs on every boot rather than inside the empty-database seed above,
+// because existing databases (local, and the Fly volume) already have events
+// and would otherwise never get the flags. Every statement is idempotent.
+// Domain is .invalid (RFC 2606) so it can't collide with a real address, nor
+// with the spec's @example.com test users.
+const DEMO_USERS = ["alex.demo@quad.invalid", "priya.demo@quad.invalid", "sam.demo@quad.invalid"];
+const DEMO_EVENTS = [
+  // [slug, host, attendees]
+  ["welcome-mixer", "alex.demo@quad.invalid", ["priya.demo@quad.invalid", "sam.demo@quad.invalid"]],
+  ["club-trivia-night", "priya.demo@quad.invalid", ["alex.demo@quad.invalid"]],
+  ["study-sprint", "sam.demo@quad.invalid", ["priya.demo@quad.invalid"]],
+];
+{
+  const insertUser = db.prepare(
+    "INSERT OR IGNORE INTO users (token, email, is_demo) VALUES (?, ?, 1)",
+  );
+  const tokenFor = db.prepare("SELECT token FROM users WHERE email = ?");
+  for (const email of DEMO_USERS) insertUser.run(crypto.randomUUID(), email);
+  db.prepare(
+    `UPDATE users SET is_demo = 1 WHERE email IN (${DEMO_USERS.map(() => "?").join(", ")})`,
+  ).run(...DEMO_USERS);
+
+  const markEvent = db.prepare("UPDATE events SET is_demo = 1 WHERE slug = ?");
+  // Only claim a host for seeded events that have none, so a real host is
+  // never overwritten.
+  const setHost = db.prepare(
+    "UPDATE events SET created_by = ? WHERE slug = ? AND created_by IS NULL",
+  );
+  const demoCheckin = db.prepare(
+    `INSERT OR IGNORE INTO checkins (event_slug, user_token)
+     SELECT ?, ? WHERE EXISTS (SELECT 1 FROM events WHERE slug = ?)`,
+  );
+  for (const [slug, host, guests] of DEMO_EVENTS) {
+    markEvent.run(slug);
+    setHost.run(tokenFor.get(host).token, slug);
+    for (const guest of guests) demoCheckin.run(slug, tokenFor.get(guest).token, slug);
+  }
+}
 
 export function userByToken(token) {
   return db.prepare("SELECT * FROM users WHERE token = ?").get(token);
@@ -479,7 +531,7 @@ export function listEvents({ sort, category } = {}) {
   // host_email comes from the join so views never need created_by (which holds
   // the host's session token and must not be rendered).
   let sql = `SELECT events.*, users.email AS host_email,
-              users.name AS host_name, users.username AS host_username,
+              users.name AS host_name, users.username AS host_username, users.is_demo AS host_is_demo,
               (SELECT COUNT(*) FROM checkins WHERE checkins.event_slug = events.slug) AS attendee_count
        FROM events LEFT JOIN users ON users.token = events.created_by`;
   const params = [];
@@ -497,8 +549,16 @@ export function listEvents({ sort, category } = {}) {
   return db.prepare(sql).all(...params);
 }
 
+// Same host join as listEvents, so the event page can name (and tag) the host
+// without ever touching created_by.
 export function getEvent(slug) {
-  return db.prepare("SELECT * FROM events WHERE slug = ?").get(slug);
+  return db
+    .prepare(
+      `SELECT events.*, users.email AS host_email, users.is_demo AS host_is_demo
+       FROM events LEFT JOIN users ON users.token = events.created_by
+       WHERE events.slug = ?`,
+    )
+    .get(slug);
 }
 
 // lat, lng and distance_km are optional (the lat/lng/distance_km columns are
@@ -557,7 +617,7 @@ export function eventsCheckedInBy(token) {
 export function attendees(eventSlug) {
   return db
     .prepare(
-      `SELECT users.email, checkins.created_at FROM checkins
+      `SELECT users.email, users.is_demo, checkins.created_at FROM checkins
        JOIN users ON users.token = checkins.user_token
        WHERE checkins.event_slug = ?
        ORDER BY checkins.created_at ASC`,

@@ -80,6 +80,11 @@
   --avatar-s: 80%;
 
   color-scheme: light;
+
+  /* DEMO tag only: amber reads as "not real" without competing with the
+     action accent. #92400e on #fef3c7 is about 6.4:1 contrast. */
+  --demo-bg: #fef3c7;
+  --demo-ink: #92400e;
 }
 
 /* Dark tokens. Duplicated for the "system" case because plain CSS has no
@@ -1803,6 +1808,35 @@ textarea {
   border-radius: var(--radius-pill);
 }
 
+/* DEMO tag on seeded dummy users and events (views.js demoTag) */
+.demo-tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--demo-ink);
+  border-radius: 999px;
+  background: var(--demo-bg);
+  color: var(--demo-ink);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+}
+
+h1 .demo-tag {
+  font-size: 0.8rem;
+}
+
+.demo-note {
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--demo-ink);
+  background: var(--demo-bg);
+  color: var(--demo-ink);
+  font-size: 0.9rem;
+}
+
+/* Event card grid (home page) */
 .event-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));

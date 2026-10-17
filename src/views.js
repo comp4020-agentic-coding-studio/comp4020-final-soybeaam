@@ -421,7 +421,7 @@ function sidebarUser(user, active) {
     } title="Your profile">
       <span class="avatar-wrap">${avatar(face, "md")}<span class="online-dot" aria-hidden="true"></span></span>
       <span class="sb-user-text">
-        <strong class="sb-user-name">${escape(name)}</strong>
+        <strong class="sb-user-name">${escape(name)}${demoTag(user.is_demo)}</strong>
         ${user.username ? `<span class="sb-user-handle">@${escape(user.username)}</span>` : ""}
       </span>
       <span class="visually-hidden">(online, view your profile)</span>
@@ -501,6 +501,13 @@ function pageScript(src) {
   return `\n    <script src="${MAPLIBRE.js}" integrity="${MAPLIBRE.jsHash}" crossorigin="anonymous" defer></script>${tag}`;
 }
 
+// Marks seeded dummy data (users and events flagged is_demo in db.js). Text,
+// not just colour, so it still reads without colour vision or styles. Returns
+// "" for real data so their markup is unchanged.
+export function demoTag(isDemo) {
+  return isDemo ? ` <span class="demo-tag" title="Dummy data seeded for the demo">DEMO</span>` : "";
+}
+
 // layout({title, user, body, active, bodyClass, scripts}): full page shell with
 // the app sidebar. active is a sidebar key: "home" | "discover" | "my-events" |
 // "saved" | "map" | "communities" | "messages" | "notifications" | "tickets" |
@@ -577,7 +584,7 @@ export function priceLabel(cents) {
 // is deliberately never read here.
 export function eventCard(event, { attendeeCount } = {}) {
   const hostName = event.host_name || event.host_username || "";
-  const hostLabel = hostName ? `Hosted by ${escape(hostName)}` : "Host TBA";
+  const hostLabel = hostName ? `Hosted by ${escape(hostName)}${demoTag(event.host_is_demo)}` : "Host TBA";
   const chip =
     typeof attendeeCount === "number" && attendeeCount > 0
       ? `<span class="attendee-chip">${attendeeCount} checked in</span>`
@@ -594,7 +601,7 @@ export function eventCard(event, { attendeeCount } = {}) {
       <span class="price-badge">${escape(priceLabel(event.price_cents ?? 0))}</span>
     </div>
     <div class="card-body">
-      <h2 class="card-title"><a href="/events/${escape(event.slug)}">${escape(event.title)}</a></h2>
+      <h2 class="card-title"><a href="/events/${escape(event.slug)}">${escape(event.title)}</a>${demoTag(event.is_demo)}</h2>
       <p class="card-meta">${escape(event.event_date || "Date TBA")}</p>
       <p class="card-meta">${escape(event.location || "Location TBA")}</p>
       ${event.affiliation ? `<p class="card-meta card-affiliation">${escape(event.affiliation)}</p>` : ""}
