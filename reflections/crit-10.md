@@ -1,7 +1,7 @@
-# What was the breakthrough that moved the work forward?
+What was the breakthrough that moved the work forward?
 
-TODO
+The breakthrough that moved my work forward was finding a way to approach image generation without relying on a terminal-based Claude setup or installing an additional image-generation plugin. Getting the image generation to work took a little longer than I initially expected, as I had to explore different approaches and work out what would best suit my workflow. Although the process was slower than anticipated, it helped me understand that developing software often involves experimenting, troubleshooting, and adapting when the first approach does not work as planned. I also became more aware of the importance of choosing tools that fit my workflow rather than adding extra dependencies unnecessarily. This experience reminded me that progress is not always about finding the fastest solution, but about finding an approach that is practical and effective.
 
-# What did this work change about who I want to be as a software developer?
+What did this work change about who I want to be as a software developer?
 
-TODO
+This work has encouraged me to become a more independent, adaptable, and resourceful software developer. I want to be someone who is willing to experiment with unfamiliar tools, work through technical challenges, and find solutions without immediately relying on the most obvious approach. I also want to become more intentional about the tools and technologies I use, considering whether they genuinely improve my workflow before introducing additional complexity. The experience reinforced that problem-solving is an important part of software development and that unexpected difficulties can provide valuable learning opportunities. Moving forward, I want to approach challenges with more patience, confidence, and curiosity, focusing not only on completing a task but also on understanding the process behind it and improving my skills along the way.
