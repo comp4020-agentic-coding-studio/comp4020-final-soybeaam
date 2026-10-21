@@ -128,13 +128,14 @@ it("seeded dummy events and users carry a DEMO tag, real users don't", async () 
   const home = await (await fetch(new URL("/", baseUrl))).text();
   expect(home).toMatch(/Welcome mixer<\/a> <span class="demo-tag"[^>]*>DEMO<\/span>/);
 
-  // A real (non-seeded) attendee keeps plain markup; the demo attendee is tagged.
+  // A real (non-seeded, non-demo) attendee keeps plain markup; the demo
+  // attendee is tagged. alex@quad.test is the shared seeded login but isn't
+  // one of the DEMO-flagged accounts, so it stands in for a "real" user here.
   const session = jar();
-  const email = uniqueEmail();
   await session.fetch("/login", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: `email=${encodeURIComponent(email)}`,
+    body: loginBody,
   });
   await session.fetch("/events/welcome-mixer/checkin", { method: "POST" });
   const page = await (await session.fetch("/events/welcome-mixer")).text();

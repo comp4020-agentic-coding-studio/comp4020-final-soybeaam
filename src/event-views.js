@@ -2,10 +2,11 @@
 //
 // People here are publicUser() objects from social-db.js (no email, no
 // token). The one exception is the legacy `attendees` list, which keeps its
-// plain <li>email</li> rows because spec/events.test.ts checks for them.
+// plain <li>email</li> rows (demoTag() aside) because spec/events.test.ts
+// checks for them.
 // Everything that only lives in the browser (saved, follows, reactions, poll
 // votes) is wired up by /client.js through the data-* hooks noted below.
-import { escape, layout, avatar, formatDate, tabs, accordion, loadingButton, priceLabel } from "./views.js";
+import { escape, layout, avatar, formatDate, tabs, accordion, loadingButton, priceLabel, demoTag } from "./views.js";
 import { icon } from "./icons.js";
 import { coverImageFor } from "./event-images.js";
 
@@ -501,14 +502,16 @@ function communityLink(event) {
   </a>`;
 }
 
-// The original check-in list. The plain <li>email</li> rows are what
-// spec/events.test.ts counts, so they must stay bare and appear only here.
+// The original check-in list. The plain <li>email</li> rows (for non-demo
+// attendees) are what spec/events.test.ts counts, so a real attendee's row
+// must stay bare; only the trailing demoTag() may add anything after the
+// email, and only for seeded demo accounts.
 function checkedInList(attendees) {
   return section(
     "checked-in",
     `Checked in on Quad (${attendees.length})`,
     attendees.length
-      ? `<ul class="attendees attendees-compact">${attendees.map((a) => `<li>${escape(a.email)}</li>`).join("\n")}</ul>`
+      ? `<ul class="attendees attendees-compact">${attendees.map((a) => `<li>${escape(a.email)}${demoTag(a.is_demo)}</li>`).join("\n")}</ul>`
       : `<p class="meta">Nobody yet. Be the first to check in.</p>`,
   );
 }
