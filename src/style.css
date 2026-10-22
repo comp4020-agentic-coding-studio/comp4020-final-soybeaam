@@ -625,8 +625,19 @@ html.js {
   padding: 0 var(--space-2);
 }
 
+/* Desktop-only toggle for the icon rail. Must follow .icon-button so this
+   display: none wins; the desktop media query below turns it on under .js. */
+.sb-collapse {
+  display: none;
+}
+
 .sb-host {
   margin: var(--space-1) 0;
+}
+
+/* The guest Log in icon only shows in the collapsed rail. */
+.sb-login .icon {
+  display: none;
 }
 
 .sb-host .icon {
@@ -875,6 +886,142 @@ html.js {
 
   .app-main {
     margin-left: var(--sidebar-w);
+  }
+
+  .js .sb-collapse {
+    display: inline-grid;
+  }
+}
+
+/* Desktop collapsed rail (client.js toggles html.sb-collapsed, the head script
+   restores it). Everything sits inside the desktop query so a collapsed class
+   does nothing to the mobile drawer if the window shrinks. Text is clipped,
+   not display: none, so links keep their accessible names; title gives the
+   rail hover tooltips. */
+@media (min-width: 56.25rem) {
+  .sb-collapsed {
+    --sidebar-w: 4.25rem;
+  }
+
+  .sb-collapsed .sb-head {
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: 0;
+  }
+
+  /* Hides the bare "Quad" text node; .brand-mark sets its own font-size. */
+  .sb-collapsed .sb-head .brand {
+    font-size: 0;
+    gap: 0;
+  }
+
+  .sb-collapsed .sb-collapse .icon {
+    transform: rotate(180deg);
+  }
+
+  .sb-collapsed .sb-label,
+  .sb-collapsed .sb-host-label,
+  .sb-collapsed .sb-user-text,
+  .sb-collapsed .sb-login-label {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .sb-collapsed .sb-host,
+  .sb-collapsed .sb-login {
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .sb-collapsed .sb-login .icon {
+    display: block;
+  }
+
+  .sb-collapsed .sb-guest-text {
+    display: none;
+  }
+
+  /* A thin rule keeps the groups apart once their headings are gone. */
+  .sb-collapsed .sb-group {
+    height: 1px;
+    margin: var(--space-2) var(--space-2);
+    padding: 0;
+    overflow: hidden;
+    font-size: 0;
+    background: var(--line);
+  }
+
+  .sb-collapsed .sb-group:first-child {
+    display: none;
+  }
+
+  .sb-collapsed .sb-scroll {
+    overflow-x: hidden;
+    scrollbar-width: thin;
+  }
+
+  .sb-collapsed .sb-link {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .sb-collapsed .sb-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    min-width: 1rem;
+    padding: 0 0.25rem;
+    font-size: 0.62rem;
+    line-height: 1rem;
+  }
+
+  .sb-collapsed .theme-dial {
+    flex-direction: column;
+    border-radius: var(--radius);
+  }
+
+  .sb-collapsed .sb-foot {
+    flex-direction: column;
+  }
+
+  .sb-collapsed .sb-user {
+    flex: none;
+    padding: var(--space-1);
+  }
+
+  .sb-collapsed .sb-user .avatar-wrap {
+    align-self: center;
+  }
+}
+
+/* Width and margin only animate after a click (client.js adds sb-animate),
+   so a restored rail doesn't slide in on page load. clip and nowrap stop the
+   labels wrapping while the sidebar is still narrow. */
+@media (min-width: 56.25rem) and (prefers-reduced-motion: no-preference) {
+  .sb-animate .app-sidebar {
+    overflow-x: clip;
+    transition: width 0.2s ease;
+  }
+
+  .sb-animate .sb-head .brand,
+  .sb-animate .sb-host,
+  .sb-animate .sb-label {
+    white-space: nowrap;
+  }
+
+  .sb-animate .app-main {
+    transition: margin-left 0.2s ease;
+  }
+
+  .sb-animate .sb-collapse .icon {
+    transition: transform 0.2s ease;
   }
 }
 

@@ -392,7 +392,9 @@ function sidebarNav(user, active) {
       .filter((l) => (!l.auth || user) && (!l.admin || user?.role === "admin"))
       .map((l) => {
         const on = active === l.key;
-        return `<li><a class="sb-link${on ? " is-active" : ""}" href="${l.href}"${on ? ` aria-current="page"` : ""}>${icon(
+        return `<li><a class="sb-link${on ? " is-active" : ""}" href="${l.href}"${
+          on ? ` aria-current="page"` : ""
+        } title="${escape(l.label)}">${icon(
           l.key,
           "icon sb-icon",
         )}<span class="sb-label">${escape(l.label)}</span>${
@@ -410,7 +412,7 @@ function sidebarUser(user, active) {
   if (!user) {
     return `<div class="sb-foot sb-foot-guest">
       <p class="sb-guest-text">Log in to check in, chat and host.</p>
-      <a class="button button-block" href="/login">Log in</a>
+      <a class="button button-block sb-login" href="/login" title="Log in">${icon("profile")}<span class="sb-login-label">Log in</span></a>
     </div>`;
   }
   const name = displayName(user);
@@ -438,11 +440,14 @@ function sidebarUser(user, active) {
 // Runs in <head>, before the stylesheet, so there's no flash of the wrong
 // colours. The server already rendered data-theme (from the DB for logged-in
 // users, from the theme cookie for guests); this only applies the accent
-// colour, which is never stored server-side for anyone.
+// colour, which is never stored server-side for anyone. It also restores the
+// collapsed desktop sidebar (client.js saves it JSON-encoded) before the first
+// paint. classList.add, not className, so the later no-js -> js swap still works.
 const THEME_HEAD_SCRIPT = `(function(){try{
     var d=document.documentElement;
     var a=localStorage.getItem("quad-accent");
     if(a&&a!=="orange")d.setAttribute("data-accent",a);
+    if(localStorage.getItem("quad:sidebar-collapsed")==="true")d.classList.add("sb-collapsed");
   }catch(e){}})();`;
 
 function themeDial(theme, user) {
@@ -596,10 +601,11 @@ export function layout({
       <div class="sb-head">
         <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span>Quad</a>
         <button type="button" class="icon-button sb-close" data-nav-close aria-label="Close menu">${icon("close")}</button>
+        <button type="button" class="icon-button sb-collapse" data-sb-collapse aria-expanded="true" aria-controls="site-nav" aria-label="Collapse sidebar" title="Collapse sidebar">${icon("collapse")}</button>
       </div>
       <a class="button sb-host${hostOn ? " is-active" : ""}" href="${user ? "/events/new" : "/login?next=/events/new"}"${
         hostOn ? ` aria-current="page"` : ""
-      }>${icon("host")}Host an event</a>
+      } title="Host an event">${icon("host")}<span class="sb-host-label">Host an event</span></a>
       <nav class="sb-scroll" aria-label="Main">${sidebarNav(user, key)}</nav>
       ${themeDial(theme, user)}
       ${sidebarUser(user, key)}

@@ -85,6 +85,30 @@
     window.matchMedia("(min-width: 56.25rem)").addEventListener("change", function (e) { if (e.matches) setNav(false, false); });
   }
 
+  /* ---- Sidebar collapse (desktop) ---- */
+
+  // The head script already applied the saved state, so the class on <html> is
+  // the truth here. sb-animate is only added on click, so a restored rail never
+  // slides on page load.
+  var collapseBtn = $("[data-sb-collapse]");
+  if (collapseBtn) {
+    var root = d.documentElement;
+    var syncCollapse = function () {
+      var collapsed = root.classList.contains("sb-collapsed");
+      var label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+      collapseBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      collapseBtn.setAttribute("aria-label", label);
+      collapseBtn.title = label;
+    };
+    syncCollapse();
+    collapseBtn.addEventListener("click", function () {
+      root.classList.add("sb-animate");
+      var collapsed = root.classList.toggle("sb-collapsed");
+      save("quad:sidebar-collapsed", collapsed);
+      syncCollapse();
+    });
+  }
+
   /* ---- Notification badge ---- */
 
   // The notifications page can render data-notification-ids='[..]' and the
