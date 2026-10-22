@@ -1,9 +1,9 @@
 /* Quad design system.
    A warm off-white canvas with white surfaces so cards and panels lift off
-   the page. One orange-red accent marks anything actionable; everything else
-   stays neutral. --accent is the bright brand orange (decoration, focus
+   the page. One purple accent marks anything actionable; everything else
+   stays neutral. --accent is the bright brand purple (decoration, focus
    rings); --accent-strong is the darker shade used wherever text sits on or
-   in the accent, because white on --accent is only about 3.4:1.
+   in the accent, because white on --accent is only about 3.9:1.
 
    Theme: <html data-theme="light|dark|system">. "system" follows the OS via
    prefers-color-scheme. Every colour below is a token so dark mode only has
@@ -13,7 +13,7 @@
   /* Original palette tokens (kept) */
   --ink: #16181d;
   --paper: #ffffff;
-  --accent: #e8623c;
+  --accent: #7c3aed;
   --accent-ink: #ffffff;
   --line: #e5e7eb;
   --muted: #5b6170;
@@ -25,10 +25,10 @@
   --line-strong: #9ca3af; /* 1px control borders need ~3:1 against the surface */
 
   /* Accent family */
-  --accent-strong: #c2410c; /* 5.2:1 with white text */
-  --accent-hover: #a8380a;
-  --accent-soft: #fdeee7;
-  --link: #c2410c;
+  --accent-strong: #6d28d9; /* 5.6:1 with white text */
+  --accent-hover: #5b21b6;
+  --accent-soft: #f1e8ff;
+  --link: #6d28d9;
 
   /* Status */
   --success: #2f7a4d;
@@ -41,18 +41,18 @@
   --info-soft: #e8efff;
 
   /* Gradients */
-  --gradient-brand: linear-gradient(135deg, #f0774a 0%, #c2410c 100%);
-  --gradient-button: linear-gradient(180deg, #cc4a14 0%, #c2410c 100%);
-  --gradient-hero: radial-gradient(120% 140% at 0% 0%, #fde3d6 0%, rgba(253, 227, 214, 0) 55%),
+  --gradient-brand: linear-gradient(135deg, #a78bfa 0%, #6d28d9 100%);
+  --gradient-button: linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%);
+  --gradient-hero: radial-gradient(120% 140% at 0% 0%, #ece0ff 0%, rgba(236, 224, 255, 0) 55%),
     radial-gradient(90% 120% at 100% 100%, #ece7ff 0%, rgba(236, 231, 255, 0) 60%), #fbf8f5;
-  --gradient-card: linear-gradient(135deg, #fde7dc 0%, #f3f4f6 60%, #e5e7eb 100%);
+  --gradient-card: linear-gradient(135deg, #ece0ff 0%, #f3f4f6 60%, #e5e7eb 100%);
 
   /* Shadows */
   --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.06);
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.06);
   --shadow-md: 0 2px 4px rgba(16, 24, 40, 0.08), 0 10px 24px rgba(16, 24, 40, 0.1);
   --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.16), 0 2px 6px rgba(16, 24, 40, 0.08);
-  --ring: 0 0 0 3px rgba(232, 98, 60, 0.4);
+  --ring: 0 0 0 3px rgba(124, 58, 237, 0.4);
 
   /* Radius */
   --radius-sm: 6px;
@@ -92,15 +92,15 @@
 [data-theme="dark"] {
   --ink: #e8eaef;
   --paper: #171a21;
-  --accent: #f0774a;
+  --accent: #c4a6ff;
   --line: #2a2f3a;
   --muted: #a3a9b6;
   --canvas: #0f1115;
   --surface-2: #1d2129;
   --surface-3: #252a33;
   --line-strong: #5b6372;
-  --accent-soft: #3a2119;
-  --link: #ff9b73;
+  --accent-soft: #2a1d4a;
+  --link: #c4a6ff;
   --success: #6fcf97;
   --success-soft: #15291e;
   --danger: #ff8a80;
@@ -109,9 +109,9 @@
   --warning-soft: #33280f;
   --info: #93b4ff;
   --info-soft: #172241;
-  --gradient-hero: radial-gradient(120% 140% at 0% 0%, #3a2119 0%, rgba(58, 33, 25, 0) 55%),
+  --gradient-hero: radial-gradient(120% 140% at 0% 0%, #2a1d4a 0%, rgba(42, 29, 74, 0) 55%),
     radial-gradient(90% 120% at 100% 100%, #221d3a 0%, rgba(34, 29, 58, 0) 60%), #151820;
-  --gradient-card: linear-gradient(135deg, #3a2119 0%, #1d2129 60%, #171a21 100%);
+  --gradient-card: linear-gradient(135deg, #2a1d4a 0%, #1d2129 60%, #171a21 100%);
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 10px 24px rgba(0, 0, 0, 0.4);
@@ -125,15 +125,15 @@
   [data-theme="system"] {
     --ink: #e8eaef;
     --paper: #171a21;
-    --accent: #f0774a;
+    --accent: #c4a6ff;
     --line: #2a2f3a;
     --muted: #a3a9b6;
     --canvas: #0f1115;
     --surface-2: #1d2129;
     --surface-3: #252a33;
     --line-strong: #5b6372;
-    --accent-soft: #3a2119;
-    --link: #ff9b73;
+    --accent-soft: #2a1d4a;
+    --link: #c4a6ff;
     --success: #6fcf97;
     --success-soft: #15291e;
     --danger: #ff8a80;
@@ -142,9 +142,9 @@
     --warning-soft: #33280f;
     --info: #93b4ff;
     --info-soft: #172241;
-    --gradient-hero: radial-gradient(120% 140% at 0% 0%, #3a2119 0%, rgba(58, 33, 25, 0) 55%),
+    --gradient-hero: radial-gradient(120% 140% at 0% 0%, #2a1d4a 0%, rgba(42, 29, 74, 0) 55%),
       radial-gradient(90% 120% at 100% 100%, #221d3a 0%, rgba(34, 29, 58, 0) 60%), #151820;
-    --gradient-card: linear-gradient(135deg, #3a2119 0%, #1d2129 60%, #171a21 100%);
+    --gradient-card: linear-gradient(135deg, #2a1d4a 0%, #1d2129 60%, #171a21 100%);
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 10px 24px rgba(0, 0, 0, 0.4);
@@ -155,9 +155,9 @@
   }
 }
 
-/* Accent palettes. <html data-accent="orange|blue|green|violet"> swaps the
-   brand hue; "orange" is the default and needs no override. Each accent
-   redefines the same handful of tokens that encode the orange hue:
+/* Accent palettes. <html data-accent="purple|blue|green|orange"> swaps the
+   brand hue; "purple" is the default and needs no override. Each accent
+   redefines the same handful of tokens that encode the purple hue:
    --accent/--accent-strong/--accent-hover/--accent-soft/--link plus the
    accent-tinted gradients and focus ring. Every accent gets three blocks
    (light, explicit dark, and system-dark) so it survives both theme modes;
@@ -231,37 +231,37 @@
   }
 }
 
-[data-accent="violet"] {
-  --accent: #7c3aed;
-  --accent-strong: #6d28d9; /* 5.6:1 with white text */
-  --accent-hover: #5b21b6;
-  --accent-soft: #f1e8ff;
-  --link: #6d28d9;
-  --ring: 0 0 0 3px rgba(124, 58, 237, 0.4);
-  --gradient-brand: linear-gradient(135deg, #a78bfa 0%, #6d28d9 100%);
-  --gradient-button: linear-gradient(180deg, #8b5cf6 0%, #6d28d9 100%);
-  --gradient-hero: radial-gradient(120% 140% at 0% 0%, #ece0ff 0%, rgba(236, 224, 255, 0) 55%),
+[data-accent="orange"] {
+  --accent: #e8623c;
+  --accent-strong: #c2410c; /* 5.2:1 with white text */
+  --accent-hover: #a8380a;
+  --accent-soft: #fdeee7;
+  --link: #c2410c;
+  --ring: 0 0 0 3px rgba(232, 98, 60, 0.4);
+  --gradient-brand: linear-gradient(135deg, #f0774a 0%, #c2410c 100%);
+  --gradient-button: linear-gradient(180deg, #cc4a14 0%, #c2410c 100%);
+  --gradient-hero: radial-gradient(120% 140% at 0% 0%, #fde3d6 0%, rgba(253, 227, 214, 0) 55%),
     radial-gradient(90% 120% at 100% 100%, #ece7ff 0%, rgba(236, 231, 255, 0) 60%), #fbf8f5;
-  --gradient-card: linear-gradient(135deg, #ece0ff 0%, #f3f4f6 60%, #e5e7eb 100%);
+  --gradient-card: linear-gradient(135deg, #fde7dc 0%, #f3f4f6 60%, #e5e7eb 100%);
 }
 
-[data-theme="dark"][data-accent="violet"] {
-  --accent: #c4a6ff;
-  --accent-soft: #2a1d4a;
-  --link: #c4a6ff;
-  --gradient-hero: radial-gradient(120% 140% at 0% 0%, #2a1d4a 0%, rgba(42, 29, 74, 0) 55%),
+[data-theme="dark"][data-accent="orange"] {
+  --accent: #f0774a;
+  --accent-soft: #3a2119;
+  --link: #ff9b73;
+  --gradient-hero: radial-gradient(120% 140% at 0% 0%, #3a2119 0%, rgba(58, 33, 25, 0) 55%),
     radial-gradient(90% 120% at 100% 100%, #221d3a 0%, rgba(34, 29, 58, 0) 60%), #151820;
-  --gradient-card: linear-gradient(135deg, #2a1d4a 0%, #1d2129 60%, #171a21 100%);
+  --gradient-card: linear-gradient(135deg, #3a2119 0%, #1d2129 60%, #171a21 100%);
 }
 
 @media (prefers-color-scheme: dark) {
-  [data-theme="system"][data-accent="violet"] {
-    --accent: #c4a6ff;
-    --accent-soft: #2a1d4a;
-    --link: #c4a6ff;
-    --gradient-hero: radial-gradient(120% 140% at 0% 0%, #2a1d4a 0%, rgba(42, 29, 74, 0) 55%),
+  [data-theme="system"][data-accent="orange"] {
+    --accent: #f0774a;
+    --accent-soft: #3a2119;
+    --link: #ff9b73;
+    --gradient-hero: radial-gradient(120% 140% at 0% 0%, #3a2119 0%, rgba(58, 33, 25, 0) 55%),
       radial-gradient(90% 120% at 100% 100%, #221d3a 0%, rgba(34, 29, 58, 0) 60%), #151820;
-    --gradient-card: linear-gradient(135deg, #2a1d4a 0%, #1d2129 60%, #171a21 100%);
+    --gradient-card: linear-gradient(135deg, #3a2119 0%, #1d2129 60%, #171a21 100%);
   }
 }
 

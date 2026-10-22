@@ -458,12 +458,12 @@
   /* ---- Accent picker (Settings page) ---- */
   var accentPicker = $("[data-accent-picker]");
   if (accentPicker) {
-    var currentAccent = load("quad-accent", "orange");
+    var currentAccent = load("quad-accent", "purple");
     $$("[data-accent-radio]", accentPicker).forEach(function (input) {
       input.checked = input.value === currentAccent;
       input.addEventListener("change", function () {
         save("quad-accent", input.value);
-        if (input.value === "orange") d.documentElement.removeAttribute("data-accent");
+        if (input.value === "purple") d.documentElement.removeAttribute("data-accent");
         else d.documentElement.setAttribute("data-accent", input.value);
       });
     });

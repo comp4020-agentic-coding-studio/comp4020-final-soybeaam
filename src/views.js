@@ -446,7 +446,7 @@ function sidebarUser(user, active) {
 const THEME_HEAD_SCRIPT = `(function(){try{
     var d=document.documentElement;
     var a=localStorage.getItem("quad-accent");
-    if(a&&a!=="orange")d.setAttribute("data-accent",a);
+    if(a&&a!=="purple")d.setAttribute("data-accent",a);
     if(localStorage.getItem("quad:sidebar-collapsed")==="true")d.classList.add("sb-collapsed");
   }catch(e){}})();`;
 
