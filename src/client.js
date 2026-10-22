@@ -445,6 +445,18 @@
     });
   }
 
+  /* ---- Page loader ---- */
+  // CSS already fades the loader out on its own; this just drops the node
+  // once it is gone. The fade may have finished before this deferred script
+  // ran, and the mark's own pulse bubbles animationend, hence both checks.
+  var pageLoader = $("[data-page-loader]");
+  if (pageLoader) {
+    var dropLoader = function () { if (pageLoader.parentNode) pageLoader.parentNode.removeChild(pageLoader); };
+    var loaderStyle = window.getComputedStyle(pageLoader);
+    if (loaderStyle.display === "none" || loaderStyle.visibility === "hidden") dropLoader();
+    else pageLoader.addEventListener("animationend", function (e) { if (e.target === pageLoader) dropLoader(); });
+  }
+
   window.Quad = {
     saved: saved,
     following: following,

@@ -374,6 +374,80 @@ hr {
   visibility: visible;
 }
 
+/* ==== Page loader ==== */
+/* A short cover while the page paints. The hide is a CSS animation with
+   forwards fill, so it clears itself even if client.js never loads, and it
+   never takes clicks. Only .js pages show it; .no-js gets no overlay at all.
+   --hero-delay lets the home hero entrance wait until the loader is gone. */
+:root {
+  --loader-time: 420ms;
+  --hero-delay: 0ms;
+}
+
+html.js {
+  --hero-delay: var(--loader-time);
+}
+
+.page-loader {
+  display: none;
+}
+
+/* z-index 200 sits above the skip link (100), toasts (80) and the sidebar (70). */
+.js .page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: var(--canvas);
+  pointer-events: none;
+  animation: page-loader-out 160ms ease-out calc(var(--loader-time) - 160ms) forwards;
+}
+
+.page-loader-mark {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 14px;
+  background: var(--gradient-brand);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 750;
+  box-shadow: 0 4px 14px rgba(194, 65, 12, 0.3);
+  animation: page-loader-pulse var(--loader-time) ease-in-out both;
+}
+
+@keyframes page-loader-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes page-loader-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* The global reduced-motion rule shortens durations but not delays, so the
+   loader would still sit there for its hold time. Drop it entirely instead. */
+@media (prefers-reduced-motion: reduce) {
+  .js .page-loader {
+    display: none;
+  }
+}
+
 /* ==== Layout shell ==== */
 
 .site-main {

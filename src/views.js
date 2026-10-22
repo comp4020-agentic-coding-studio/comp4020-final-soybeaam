@@ -584,6 +584,7 @@ export function layout({
   </head>
   <body${bodyClass ? ` class="${escape(bodyClass)}"` : ""}>
     <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page-loader" data-page-loader aria-hidden="true"><span class="page-loader-mark">Q</span></div>
     <header class="topbar">
       <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span>Quad</a>
       <button type="button" class="nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="site-nav">
