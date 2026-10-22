@@ -860,7 +860,7 @@ export function homePage({
       <h1 id="home-hero-title">Find something on this week and check in when you get there.</h1>
       <p class="home-hero-sub">Quad lists events from clubs, societies and anyone else who wants to run one. Pick an event, turn up, and check in from your phone.</p>
       <div class="cluster home-hero-actions">
-        <a class="button button-lg" href="#events">Browse events</a>
+        <a class="button button-lg" href="/discover">Browse events</a>
         <a class="button button-secondary button-lg" href="${hostHref}">Host an event</a>
       </div>
     </div>
