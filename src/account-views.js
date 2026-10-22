@@ -56,10 +56,10 @@ const THEME_OPTIONS = [
 // in client.js), not sent to the server, so it isn't part of preferencesForm's
 // POST and has no validation to match.
 const ACCENT_OPTIONS = [
-  { value: "orange", label: "Orange", swatch: "#e8623c" },
+  { value: "purple", label: "Purple", swatch: "#7c3aed" },
   { value: "blue", label: "Blue", swatch: "#2563eb" },
   { value: "green", label: "Green", swatch: "#16a34a" },
-  { value: "violet", label: "Violet", swatch: "#7c3aed" },
+  { value: "orange", label: "Orange", swatch: "#e8623c" },
 ];
 
 function eventList(events, isOwn) {
