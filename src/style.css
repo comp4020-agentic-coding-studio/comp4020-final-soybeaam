@@ -2444,6 +2444,99 @@ h1 .demo-tag {
   stroke-width: 5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  /* pathLength="1" on the path, so a dash of 1 is the whole tick */
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+/* Hero art entrance: the tickets settle in back to front, then the tick draws
+   itself, then the whole stack drifts very slowly. Starts after the page
+   loader (--hero-delay), and fill-mode both keeps each layer hidden until its
+   turn so nothing pops in and then vanishes. */
+.ha-in,
+.ha-check-bg {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ha-in {
+  animation: ha-settle 520ms cubic-bezier(0.2, 0.7, 0.3, 1) var(--hero-delay) both;
+}
+
+.ha-in-mid {
+  animation-delay: calc(var(--hero-delay) + 90ms);
+}
+
+.ha-in-front {
+  animation-delay: calc(var(--hero-delay) + 180ms);
+}
+
+.ha-check-bg {
+  animation: ha-pop 320ms cubic-bezier(0.3, 1.4, 0.5, 1) calc(var(--hero-delay) + 520ms) both;
+}
+
+.ha-check {
+  animation: ha-draw 340ms ease-out calc(var(--hero-delay) + 680ms) both;
+}
+
+.hero-art-svg {
+  animation: ha-float 7s ease-in-out calc(var(--hero-delay) + 1.2s) infinite alternate;
+}
+
+@keyframes ha-settle {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ha-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Opacity rides along so a round cap can't leave a dot before the draw. */
+@keyframes ha-draw {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ha-float {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-5px);
+  }
+}
+
+/* The global rule only shortens durations, which would leave each layer
+   hidden for its delay. Turn the animations off so the art just sits there. */
+@media (prefers-reduced-motion: reduce) {
+  .ha-in,
+  .ha-check-bg,
+  .ha-check,
+  .hero-art-svg {
+    animation: none;
+  }
 }
 
 /* Home: feature cards */

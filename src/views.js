@@ -716,10 +716,12 @@ const HOME_FLASH = {
 
 // Decorative hero illustration: a stack of event tickets with a check mark.
 // Inline SVG coloured by CSS classes, so it follows the theme tokens.
+// The .ha-in wrappers exist only for the entrance animation: a CSS transform
+// on the inner shapes would replace their rotate() attributes.
 const HERO_ART = `<svg class="hero-art-svg" viewBox="0 0 320 260" aria-hidden="true" focusable="false">
-  <rect class="ha-back" x="58" y="34" width="210" height="128" rx="16" transform="rotate(-8 163 98)" />
-  <rect class="ha-mid" x="46" y="62" width="220" height="132" rx="16" transform="rotate(4 156 128)" />
-  <g class="ha-ticket" transform="rotate(-2 160 150)">
+  <g class="ha-in ha-in-back"><rect class="ha-back" x="58" y="34" width="210" height="128" rx="16" transform="rotate(-8 163 98)" /></g>
+  <g class="ha-in ha-in-mid"><rect class="ha-mid" x="46" y="62" width="220" height="132" rx="16" transform="rotate(4 156 128)" /></g>
+  <g class="ha-in ha-in-front"><g class="ha-ticket" transform="rotate(-2 160 150)">
     <rect class="ha-front" x="34" y="86" width="246" height="140" rx="18" />
     <rect class="ha-band" x="34" y="86" width="246" height="40" rx="18" />
     <rect class="ha-band" x="34" y="108" width="246" height="18" />
@@ -730,8 +732,8 @@ const HERO_ART = `<svg class="hero-art-svg" viewBox="0 0 320 260" aria-hidden="t
     <rect class="ha-line ha-line-soft" x="56" y="166" width="82" height="10" rx="5" />
     <rect class="ha-line ha-line-soft" x="56" y="186" width="96" height="10" rx="5" />
     <circle class="ha-check-bg" cx="240" cy="176" r="24" />
-    <path class="ha-check" d="M229 176 l8 8 l15 -16" />
-  </g>
+    <path class="ha-check" d="M229 176 l8 8 l15 -16" pathLength="1" />
+  </g></g>
 </svg>`;
 
 const HOME_FEATURES = [
