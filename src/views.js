@@ -784,7 +784,9 @@ function homeStats(stats) {
 }
 
 // Horizontal scroll-snap row. Without JS it is a plain scrollable list; the
-// script reveals the prev/next buttons and keeps them in sync with the scroll.
+// script reveals the prev/next buttons, adds dot indicators, and (on wide
+// screens, outside prefers-reduced-motion) auto-advances the track like a
+// slideshow, pausing on hover/focus/touch so it never fights the reader.
 function homeCarousel(featured, heading) {
   if (!featured || !featured.length) return "";
   return `<section class="section home-carousel" aria-labelledby="home-carousel-title" data-carousel>
@@ -807,6 +809,7 @@ function homeCarousel(featured, heading) {
         )
         .join("")}
     </ul>
+    <div class="cluster home-carousel-dots" data-carousel-dots hidden role="tablist" aria-label="Slides"></div>
   </section>
   <script>
     (function () {
@@ -816,22 +819,102 @@ function homeCarousel(featured, heading) {
       var controls = root.querySelector("[data-carousel-controls]");
       var prev = root.querySelector("[data-carousel-prev]");
       var next = root.querySelector("[data-carousel-next]");
-      if (!track || !controls || !prev || !next) return;
+      var dots = root.querySelector("[data-carousel-dots]");
+      var items = Array.prototype.slice.call(root.querySelectorAll(".home-carousel-item"));
+      if (!track || !controls || !prev || !next || !dots || !items.length) return;
       var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var wideQuery = window.matchMedia && window.matchMedia("(min-width: 64rem)");
+      var AUTOPLAY_MS = 5000;
+      var timer = null;
+      var paused = false;
+      var dotEls = items.map(function (item, i) {
+        var dot = document.createElement("button");
+        dot.type = "button";
+        dot.className = "home-carousel-dot";
+        dot.setAttribute("role", "tab");
+        dot.setAttribute("aria-label", "Go to slide " + (i + 1) + " of " + items.length);
+        dot.addEventListener("click", function () {
+          item.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest", inline: "start" });
+        });
+        dots.appendChild(dot);
+        return dot;
+      });
+      function activeIndex() {
+        var trackLeft = track.scrollLeft;
+        var closest = 0;
+        var closestDist = Infinity;
+        items.forEach(function (item, i) {
+          var dist = Math.abs(item.offsetLeft - trackLeft);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closest = i;
+          }
+        });
+        return closest;
+      }
       function sync() {
         var max = track.scrollWidth - track.clientWidth;
+        var isWide = wideQuery ? wideQuery.matches : false;
         controls.hidden = max <= 2;
         prev.disabled = track.scrollLeft <= 2;
         next.disabled = track.scrollLeft >= max - 2;
+        dots.hidden = !isWide || max <= 2;
+        var active = activeIndex();
+        dotEls.forEach(function (dot, i) {
+          var isActive = i === active;
+          dot.classList.toggle("is-active", isActive);
+          dot.setAttribute("aria-selected", String(isActive));
+        });
       }
       function go(dir) {
+        var max = track.scrollWidth - track.clientWidth;
+        if (dir > 0 && track.scrollLeft >= max - 2) {
+          track.scrollTo({ left: 0, behavior: reduce ? "auto" : "smooth" });
+          return;
+        }
         track.scrollBy({ left: dir * track.clientWidth * 0.85, behavior: reduce ? "auto" : "smooth" });
+      }
+      function canAutoplay() {
+        return !reduce && wideQuery && wideQuery.matches && items.length > 1 && !paused;
+      }
+      function stopAutoplay() {
+        if (timer) {
+          window.clearInterval(timer);
+          timer = null;
+        }
+      }
+      function startAutoplay() {
+        stopAutoplay();
+        if (!canAutoplay()) return;
+        timer = window.setInterval(function () {
+          go(1);
+        }, AUTOPLAY_MS);
+      }
+      function pause() {
+        paused = true;
+        stopAutoplay();
+      }
+      function resume() {
+        paused = false;
+        startAutoplay();
       }
       prev.addEventListener("click", function () { go(-1); });
       next.addEventListener("click", function () { go(1); });
       track.addEventListener("scroll", sync, { passive: true });
-      window.addEventListener("resize", sync);
+      window.addEventListener("resize", function () {
+        sync();
+        startAutoplay();
+      });
+      root.addEventListener("mouseenter", pause);
+      root.addEventListener("mouseleave", resume);
+      root.addEventListener("focusin", pause);
+      root.addEventListener("focusout", resume);
+      root.addEventListener("touchstart", pause, { passive: true });
+      if (wideQuery && wideQuery.addEventListener) {
+        wideQuery.addEventListener("change", startAutoplay);
+      }
       sync();
+      startAutoplay();
     })();
   </script>`;
 }
