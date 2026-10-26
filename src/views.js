@@ -477,6 +477,7 @@ function siteFooter(user) {
       <div class="footer-brand">
         <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span>Quad</a>
         <p class="footer-note">Events from any campus, club or community. Anyone can host, anyone can check in.</p>
+        <p class="footer-note footer-credit">Images sourced from <a href="https://www.pexels.com">Pexels</a>.</p>
       </div>
       <nav class="footer-cols" aria-label="Footer">
         <div class="footer-col">
