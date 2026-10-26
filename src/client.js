@@ -445,6 +445,42 @@
     });
   }
 
+  /* ---- Hero illustration: pointer parallax + click-to-replay ---- */
+  var heroArt = $(".home-hero-art");
+  if (heroArt) {
+    var heroTicket = $(".ha-ticket", heroArt);
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    heroArt.addEventListener("pointermove", function (e) {
+      var r = heroArt.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width - 0.5;
+      var py = (e.clientY - r.top) / r.height - 0.5;
+      heroArt.style.setProperty("--ha-dot-x", (e.clientX - r.left) + "px");
+      heroArt.style.setProperty("--ha-dot-y", (e.clientY - r.top) + "px");
+      if (heroTicket && !reduceMotion) {
+        heroTicket.style.setProperty("--ha-tilt-x", (py * -10).toFixed(2) + "deg");
+        heroTicket.style.setProperty("--ha-tilt-y", (px * 10).toFixed(2) + "deg");
+      }
+    });
+    heroArt.addEventListener("pointerleave", function () {
+      if (heroTicket) {
+        heroTicket.style.removeProperty("--ha-tilt-x");
+        heroTicket.style.removeProperty("--ha-tilt-y");
+      }
+    });
+
+    function replayCheckIn() {
+      heroArt.classList.remove("ha-replay");
+      // Reflow forces the animation to restart on the next frame.
+      void heroArt.offsetWidth;
+      heroArt.classList.add("ha-replay");
+    }
+    heroArt.addEventListener("click", replayCheckIn);
+    heroArt.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); replayCheckIn(); }
+    });
+  }
+
   window.Quad = {
     saved: saved,
     following: following,

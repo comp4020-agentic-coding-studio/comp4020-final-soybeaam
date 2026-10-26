@@ -2304,14 +2304,40 @@ h1 .demo-tag {
 }
 
 .home-hero-art {
+  position: relative;
   display: flex;
   justify-content: center;
   border-radius: var(--radius-lg);
+  perspective: 800px;
+  /* A small grey dot stands in for the usual pointer, since the whole
+     illustration is one clickable "check in" gesture. */
+  cursor: none;
 }
 
 .home-hero-art:focus-visible {
   outline: none;
   box-shadow: var(--ring);
+}
+
+.home-hero-art::after {
+  content: "";
+  position: absolute;
+  top: var(--ha-dot-y, 50%);
+  left: var(--ha-dot-x, 50%);
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--muted);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 5;
+}
+
+.home-hero-art:hover::after,
+.home-hero-art:focus-visible::after {
+  opacity: 0.6;
 }
 
 .hero-art-svg {
@@ -2332,6 +2358,7 @@ h1 .demo-tag {
   fill: var(--surface-3);
   transform-origin: 163px 98px;
   animation: ha-bob 6s ease-in-out infinite;
+  transition: transform 0.25s ease-out;
 }
 
 .ha-mid {
@@ -2340,17 +2367,49 @@ h1 .demo-tag {
   transform-origin: 156px 128px;
   animation: ha-bob 6s ease-in-out infinite;
   animation-delay: -1.5s;
+  transition: transform 0.25s ease-out;
+}
+
+.home-hero-art:hover .ha-back,
+.home-hero-art:focus-visible .ha-back {
+  animation-play-state: paused;
+  transform: translateY(-3px) rotate(var(--ha-rot, -8deg));
+}
+
+.home-hero-art:hover .ha-mid,
+.home-hero-art:focus-visible .ha-mid {
+  animation-play-state: paused;
+  transform: translateY(-9px) rotate(var(--ha-rot, -8deg));
 }
 
 .ha-ticket {
   transform-origin: 160px 150px;
-  transition: transform 0.35s ease;
+  transition: transform 0.2s ease-out;
   animation: ha-rise 0.6s ease-out both;
+  transform: rotate(calc(-2deg + var(--ha-tilt-y, 0deg))) rotateX(var(--ha-tilt-x, 0deg));
 }
 
 .home-hero-art:hover .ha-ticket,
 .home-hero-art:focus-visible .ha-ticket {
-  transform: rotate(-2deg) translateY(-6px) scale(1.02);
+  transform: rotate(calc(-2deg + var(--ha-tilt-y, 0deg))) rotateX(var(--ha-tilt-x, 0deg)) translateY(-6px) scale(1.02);
+}
+
+.home-hero-art.ha-replay .ha-check {
+  animation: ha-draw 0.5s ease-out both;
+}
+
+.home-hero-art.ha-replay .ha-check-bg {
+  animation: ha-pulse 0.5s ease-out both;
+}
+
+.home-hero-art.ha-replay .ha-ticket {
+  animation: ha-nod 0.4s ease-out both;
+}
+
+@keyframes ha-nod {
+  0% { transform: rotate(-2deg) scale(1); }
+  40% { transform: rotate(-2deg) scale(0.97) translateY(4px); }
+  100% { transform: rotate(-2deg) scale(1); }
 }
 
 .ha-front {
@@ -2437,7 +2496,14 @@ h1 .demo-tag {
   .ha-ticket,
   .ha-perf,
   .ha-check,
-  .home-hero-art:hover .ha-check-bg {
+  .home-hero-art:hover .ha-back,
+  .home-hero-art:focus-visible .ha-back,
+  .home-hero-art:hover .ha-mid,
+  .home-hero-art:focus-visible .ha-mid,
+  .home-hero-art:hover .ha-check-bg,
+  .home-hero-art.ha-replay .ha-check,
+  .home-hero-art.ha-replay .ha-check-bg,
+  .home-hero-art.ha-replay .ha-ticket {
     animation: none;
   }
   .ha-check {
@@ -2446,6 +2512,12 @@ h1 .demo-tag {
   .ha-ticket {
     opacity: 1;
     transform: rotate(-2deg);
+  }
+  .home-hero-art {
+    cursor: pointer;
+  }
+  .home-hero-art::after {
+    display: none;
   }
 }
 
