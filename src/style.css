@@ -2306,12 +2306,19 @@ h1 .demo-tag {
 .home-hero-art {
   display: flex;
   justify-content: center;
+  border-radius: var(--radius-lg);
+}
+
+.home-hero-art:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
 }
 
 .hero-art-svg {
   width: 100%;
   max-width: 22rem;
   height: auto;
+  overflow: visible;
   filter: drop-shadow(0 12px 20px rgba(16, 24, 40, 0.12));
 }
 
@@ -2323,11 +2330,27 @@ h1 .demo-tag {
 
 .ha-back {
   fill: var(--surface-3);
+  transform-origin: 163px 98px;
+  animation: ha-bob 6s ease-in-out infinite;
 }
 
 .ha-mid {
   fill: var(--accent-soft);
   stroke: var(--line);
+  transform-origin: 156px 128px;
+  animation: ha-bob 6s ease-in-out infinite;
+  animation-delay: -1.5s;
+}
+
+.ha-ticket {
+  transform-origin: 160px 150px;
+  transition: transform 0.35s ease;
+  animation: ha-rise 0.6s ease-out both;
+}
+
+.home-hero-art:hover .ha-ticket,
+.home-hero-art:focus-visible .ha-ticket {
+  transform: rotate(-2deg) translateY(-6px) scale(1.02);
 }
 
 .ha-front {
@@ -2348,6 +2371,7 @@ h1 .demo-tag {
   stroke: var(--line-strong);
   stroke-width: 2;
   stroke-dasharray: 4 6;
+  animation: ha-march 14s linear infinite;
 }
 
 .ha-line {
@@ -2370,6 +2394,59 @@ h1 .demo-tag {
   stroke-width: 5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  stroke-dasharray: 34;
+  stroke-dashoffset: 34;
+  animation: ha-draw 0.5s ease-out 0.5s forwards;
+}
+
+.home-hero-art:hover .ha-check-bg,
+.home-hero-art:focus-visible .ha-check-bg {
+  animation: ha-pulse 0.5s ease-out;
+}
+
+@keyframes ha-bob {
+  0%, 100% { transform: translateY(0) rotate(var(--ha-rot, -8deg)); }
+  50% { transform: translateY(-6px) rotate(var(--ha-rot, -8deg)); }
+}
+
+.ha-back { --ha-rot: -8deg; }
+.ha-mid { --ha-rot: 4deg; }
+
+@keyframes ha-rise {
+  from { opacity: 0; transform: translateY(14px) rotate(-2deg); }
+  to { opacity: 1; transform: translateY(0) rotate(-2deg); }
+}
+
+@keyframes ha-march {
+  to { stroke-dashoffset: -20; }
+}
+
+@keyframes ha-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes ha-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ha-back,
+  .ha-mid,
+  .ha-ticket,
+  .ha-perf,
+  .ha-check,
+  .home-hero-art:hover .ha-check-bg {
+    animation: none;
+  }
+  .ha-check {
+    stroke-dashoffset: 0;
+  }
+  .ha-ticket {
+    opacity: 1;
+    transform: rotate(-2deg);
+  }
 }
 
 /* Home: feature cards */

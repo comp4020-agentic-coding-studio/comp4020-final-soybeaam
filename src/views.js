@@ -864,7 +864,7 @@ export function homePage({
         <a class="button button-secondary button-lg" href="${hostHref}">Host an event</a>
       </div>
     </div>
-    <div class="home-hero-art">${HERO_ART}</div>
+    <div class="home-hero-art" tabindex="0" role="img" aria-label="Animated illustration of event tickets checking in">${HERO_ART}</div>
   </section>`;
 
   const ctaBand = `<section class="home-cta" aria-labelledby="home-cta-title">
