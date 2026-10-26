@@ -783,137 +783,122 @@ function homeStats(stats) {
   </section>`;
 }
 
-// Horizontal scroll-snap row. Without JS it is a plain scrollable list; the
-// script reveals the prev/next buttons, adds dot indicators, and (on wide
-// screens, outside prefers-reduced-motion) auto-advances the track like a
-// slideshow, pausing on hover/focus/touch so it never fights the reader.
+// Home slider: slides translate on a flex track (no scroll/matchMedia
+// trickery to get wrong), one event "on stage" at a time with a numbered
+// badge and a progress rail that doubles as the autoplay countdown. Without
+// JS every slide stacks and reads fine; the script lays them side by side,
+// wires the controls and starts the autoplay loop. Pauses on
+// hover/focus/touch and is skipped under prefers-reduced-motion.
 function homeCarousel(featured, heading) {
   if (!featured || !featured.length) return "";
-  return `<section class="section home-carousel" aria-labelledby="home-carousel-title" data-carousel>
+  const count = featured.length;
+  return `<section class="section home-slider" aria-labelledby="home-slider-title" data-slider>
     <div class="split section-head home-section-head">
-      <h2 id="home-carousel-title">${escape(heading)}</h2>
-      <div class="cluster home-carousel-controls" data-carousel-controls hidden>
-        <button type="button" class="button button-secondary button-sm" data-carousel-prev aria-controls="home-carousel-track">
-          <span aria-hidden="true">&larr;</span> Previous
-        </button>
-        <button type="button" class="button button-secondary button-sm" data-carousel-next aria-controls="home-carousel-track">
-          Next <span aria-hidden="true">&rarr;</span>
-        </button>
+      <h2 id="home-slider-title">${escape(heading)}</h2>
+      <div class="cluster home-slider-controls" data-slider-controls hidden>
+        <button type="button" class="icon-button home-slider-arrow" data-slider-prev aria-label="Previous event">${icon("back")}</button>
+        <button type="button" class="icon-button home-slider-arrow home-slider-arrow-next" data-slider-next aria-label="Next event">${icon("back")}</button>
       </div>
     </div>
-    <ul class="home-carousel-track" id="home-carousel-track" tabindex="0" aria-label="${escape(heading)}">
-      ${featured
-        .map(
-          (e) =>
-            `<li class="home-carousel-item">${eventCard(e, { attendeeCount: e.attendee_count })}</li>`,
-        )
-        .join("")}
-    </ul>
-    <div class="cluster home-carousel-dots" data-carousel-dots hidden role="tablist" aria-label="Slides"></div>
+    <div class="home-slider-stage" data-slider-stage tabindex="0" aria-label="${escape(heading)}" aria-roledescription="carousel">
+      <ul class="home-slider-track" data-slider-track style="--slide-count:${count}">
+        ${featured
+          .map(
+            (e, i) =>
+              `<li class="home-slider-slide" data-slider-slide aria-roledescription="slide" aria-label="${i + 1} of ${count}">
+                <span class="home-slider-badge" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span>
+                ${eventCard(e, { attendeeCount: e.attendee_count })}
+              </li>`,
+          )
+          .join("")}
+      </ul>
+    </div>
+    <div class="home-slider-rail" data-slider-dots hidden role="tablist" aria-label="Slides"></div>
   </section>
   <script>
     (function () {
-      var root = document.querySelector("[data-carousel]");
+      var root = document.querySelector("[data-slider]");
       if (!root) return;
-      var track = root.querySelector(".home-carousel-track");
-      var controls = root.querySelector("[data-carousel-controls]");
-      var prev = root.querySelector("[data-carousel-prev]");
-      var next = root.querySelector("[data-carousel-next]");
-      var dots = root.querySelector("[data-carousel-dots]");
-      var items = Array.prototype.slice.call(root.querySelectorAll(".home-carousel-item"));
-      if (!track || !controls || !prev || !next || !dots || !items.length) return;
+      var stage = root.querySelector("[data-slider-stage]");
+      var track = root.querySelector("[data-slider-track]");
+      var controls = root.querySelector("[data-slider-controls]");
+      var prev = root.querySelector("[data-slider-prev]");
+      var next = root.querySelector("[data-slider-next]");
+      var dots = root.querySelector("[data-slider-dots]");
+      var slides = Array.prototype.slice.call(root.querySelectorAll("[data-slider-slide]"));
+      if (!stage || !track || !controls || !prev || !next || !dots || !slides.length) return;
       var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      var wideQuery = window.matchMedia && window.matchMedia("(min-width: 64rem)");
       var AUTOPLAY_MS = 5000;
+      var index = 0;
       var timer = null;
       var paused = false;
-      var dotEls = items.map(function (item, i) {
+
+      controls.hidden = slides.length <= 1;
+      dots.hidden = slides.length <= 1;
+      var dotEls = slides.map(function (_, i) {
         var dot = document.createElement("button");
         dot.type = "button";
-        dot.className = "home-carousel-dot";
+        dot.className = "home-slider-dot";
         dot.setAttribute("role", "tab");
-        dot.setAttribute("aria-label", "Go to slide " + (i + 1) + " of " + items.length);
-        dot.addEventListener("click", function () {
-          item.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest", inline: "start" });
-        });
+        dot.setAttribute("aria-label", "Go to slide " + (i + 1) + " of " + slides.length);
+        dot.addEventListener("click", function () { show(i); });
         dots.appendChild(dot);
         return dot;
       });
-      function activeIndex() {
-        var trackLeft = track.scrollLeft;
-        var closest = 0;
-        var closestDist = Infinity;
-        items.forEach(function (item, i) {
-          var dist = Math.abs(item.offsetLeft - trackLeft);
-          if (dist < closestDist) {
-            closestDist = dist;
-            closest = i;
-          }
-        });
-        return closest;
-      }
-      function sync() {
-        var max = track.scrollWidth - track.clientWidth;
-        var isWide = wideQuery ? wideQuery.matches : false;
-        controls.hidden = max <= 2;
-        prev.disabled = track.scrollLeft <= 2;
-        next.disabled = track.scrollLeft >= max - 2;
-        dots.hidden = !isWide || max <= 2;
-        var active = activeIndex();
-        dotEls.forEach(function (dot, i) {
-          var isActive = i === active;
+
+      function show(i) {
+        index = (i + slides.length) % slides.length;
+        track.style.transform = "translateX(" + index * -100 + "%)";
+        dotEls.forEach(function (dot, di) {
+          var isActive = di === index;
           dot.classList.toggle("is-active", isActive);
           dot.setAttribute("aria-selected", String(isActive));
         });
+        slides.forEach(function (slide, si) {
+          slide.setAttribute("aria-hidden", String(si !== index));
+        });
+        prev.disabled = slides.length <= 1;
+        next.disabled = slides.length <= 1;
       }
-      function go(dir) {
-        var max = track.scrollWidth - track.clientWidth;
-        if (dir > 0 && track.scrollLeft >= max - 2) {
-          track.scrollTo({ left: 0, behavior: reduce ? "auto" : "smooth" });
-          return;
-        }
-        track.scrollBy({ left: dir * track.clientWidth * 0.85, behavior: reduce ? "auto" : "smooth" });
-      }
-      function canAutoplay() {
-        return !reduce && wideQuery && wideQuery.matches && items.length > 1 && !paused;
-      }
+
       function stopAutoplay() {
         if (timer) {
           window.clearInterval(timer);
           timer = null;
         }
+        root.style.removeProperty("--slider-autoplay-ms");
       }
+
       function startAutoplay() {
         stopAutoplay();
-        if (!canAutoplay()) return;
-        timer = window.setInterval(function () {
-          go(1);
-        }, AUTOPLAY_MS);
+        if (reduce || paused || slides.length <= 1) return;
+        root.style.setProperty("--slider-autoplay-ms", AUTOPLAY_MS + "ms");
+        timer = window.setInterval(function () { show(index + 1); }, AUTOPLAY_MS);
       }
+
       function pause() {
         paused = true;
         stopAutoplay();
       }
+
       function resume() {
         paused = false;
         startAutoplay();
       }
-      prev.addEventListener("click", function () { go(-1); });
-      next.addEventListener("click", function () { go(1); });
-      track.addEventListener("scroll", sync, { passive: true });
-      window.addEventListener("resize", function () {
-        sync();
-        startAutoplay();
+
+      prev.addEventListener("click", function () { pause(); show(index - 1); resume(); });
+      next.addEventListener("click", function () { pause(); show(index + 1); resume(); });
+      stage.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowLeft") { pause(); show(index - 1); resume(); }
+        else if (e.key === "ArrowRight") { pause(); show(index + 1); resume(); }
       });
       root.addEventListener("mouseenter", pause);
       root.addEventListener("mouseleave", resume);
       root.addEventListener("focusin", pause);
       root.addEventListener("focusout", resume);
       root.addEventListener("touchstart", pause, { passive: true });
-      if (wideQuery && wideQuery.addEventListener) {
-        wideQuery.addEventListener("change", startAutoplay);
-      }
-      sync();
+
+      show(0);
       startAutoplay();
     })();
   </script>`;

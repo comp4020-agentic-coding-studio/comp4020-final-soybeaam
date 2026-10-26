@@ -2411,98 +2411,126 @@ h1 .demo-tag {
   color: var(--muted);
 }
 
-/* Home: featured carousel. A plain scrollable row; JS only adds the buttons. */
-.home-carousel-track {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(15rem, 82%);
-  gap: var(--space-4);
-  list-style: none;
-  margin: 0 calc(var(--space-2) * -1);
-  /* Vertical padding leaves room for the card hover lift and shadow. */
-  padding: var(--space-2) var(--space-2) var(--space-4);
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--space-2);
-  scrollbar-width: thin;
+/* Home: featured slider. Without JS the slides stack as a plain list; the
+   script lays them into a horizontal track, adds the stage, and drives the
+   transform-based animation plus the autoplay rail. */
+.home-slider-stage {
+  overflow: hidden;
+  border-radius: var(--radius-xl);
 }
 
-@media (min-width: 40rem) {
-  .home-carousel-track {
-    grid-auto-columns: 17rem;
-  }
-}
-
-.home-carousel-track:focus-visible {
+.home-slider-stage:focus-visible {
   outline: none;
   box-shadow: var(--ring);
-  border-radius: var(--radius-lg);
 }
 
-.home-carousel-item {
+.home-slider-track {
   display: flex;
-  scroll-snap-align: start;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.home-carousel-controls .button:disabled {
-  opacity: 0.45;
+/* No-JS / no scripting fallback: a vertical stack of full-width cards. */
+.home-slider-slide {
+  position: relative;
+  flex: 0 0 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-2) var(--space-5);
+}
+
+.home-slider-badge {
+  position: absolute;
+  top: calc(var(--space-2) + var(--space-2));
+  left: calc(var(--space-2) + var(--space-2));
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--accent);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow-xs);
 }
 
 @media (min-width: 64rem) {
-  .home-carousel-track {
-    scroll-behavior: smooth;
-    grid-auto-columns: minmax(0, calc((100% - 2 * var(--space-4)) / 3));
-  }
-
-  .home-carousel-item {
-    scroll-snap-align: start;
+  .home-slider-slide {
+    padding-inline: var(--space-5);
   }
 }
 
-.home-carousel-dots {
+.home-slider-controls {
+  gap: var(--space-2);
+}
+
+.home-slider-arrow-next svg {
+  transform: scaleX(-1);
+}
+
+.home-slider-controls .icon-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.home-slider-rail {
+  display: flex;
   justify-content: center;
   gap: var(--space-2);
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
 }
 
-.home-carousel-dot {
-  width: 0.5rem;
-  height: 0.5rem;
+.home-slider-dot {
+  position: relative;
+  width: 2rem;
+  height: 0.3rem;
   padding: 0;
+  overflow: hidden;
   border: none;
   border-radius: 999px;
   background: var(--line);
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.home-carousel-dot:hover {
+.home-slider-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  transform: scaleX(0);
+  background: var(--accent);
+  border-radius: inherit;
+}
+
+.home-slider-dot:hover {
   background: var(--muted);
 }
 
-.home-carousel-dot.is-active {
-  background: var(--accent);
-  transform: scale(1.3);
+.home-slider-dot.is-active::after {
+  transform: scaleX(1);
+  transition: transform var(--slider-autoplay-ms, 0s) linear;
 }
 
-.home-carousel-dot:focus-visible {
+.home-slider-dot:focus-visible {
   outline: none;
   box-shadow: var(--ring);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-carousel-track {
-    scroll-behavior: auto;
-  }
-
-  .home-carousel-item {
+  .home-slider-track {
     transition: none;
   }
 
-  .home-carousel-dot {
+  .home-slider-dot.is-active::after {
     transition: none;
+    transform: scaleX(1);
   }
 }
 
