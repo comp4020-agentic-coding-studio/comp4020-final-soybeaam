@@ -2450,7 +2450,7 @@ h1 .demo-tag {
 .home-slider-slide {
   position: relative;
   flex: 0 0 auto;
-  width: 9rem;
+  width: 12.5rem;
   pointer-events: none;
 }
 
