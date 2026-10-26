@@ -783,12 +783,13 @@ function homeStats(stats) {
   </section>`;
 }
 
-// Home slider: slides translate on a flex track (no scroll/matchMedia
-// trickery to get wrong), one event "on stage" at a time with a numbered
-// badge and a progress rail that doubles as the autoplay countdown. Without
-// JS every slide stacks and reads fine; the script lays them side by side,
-// wires the controls and starts the autoplay loop. Pauses on
-// hover/focus/touch and is skipped under prefers-reduced-motion.
+// Home slider: a draggable filmstrip that shows several events at once and
+// drifts sideways on its own. The track's position is just a translateX in
+// pixels, so autoplay (a slow constant drift, rAF-driven) and pointer drag
+// (grab the stage, move it 1:1 with the pointer) are the same code path —
+// dragging simply takes over the position autoplay was already animating,
+// and releasing hands it back once the pointer stops touching the strip.
+// Without JS the events stack as a plain readable list.
 function homeCarousel(featured, heading) {
   if (!featured || !featured.length) return "";
   const count = featured.length;
@@ -796,16 +797,16 @@ function homeCarousel(featured, heading) {
     <div class="split section-head home-section-head">
       <h2 id="home-slider-title">${escape(heading)}</h2>
       <div class="cluster home-slider-controls" data-slider-controls hidden>
-        <button type="button" class="icon-button home-slider-arrow" data-slider-prev aria-label="Previous event">${icon("back")}</button>
-        <button type="button" class="icon-button home-slider-arrow home-slider-arrow-next" data-slider-next aria-label="Next event">${icon("back")}</button>
+        <button type="button" class="icon-button home-slider-arrow" data-slider-prev aria-label="Scroll left">${icon("back")}</button>
+        <button type="button" class="icon-button home-slider-arrow home-slider-arrow-next" data-slider-next aria-label="Scroll right">${icon("back")}</button>
       </div>
     </div>
-    <div class="home-slider-stage" data-slider-stage tabindex="0" aria-label="${escape(heading)}" aria-roledescription="carousel">
-      <ul class="home-slider-track" data-slider-track style="--slide-count:${count}">
+    <div class="home-slider-stage" data-slider-stage tabindex="0" aria-label="${escape(heading)}, draggable" role="group">
+      <ul class="home-slider-track" data-slider-track>
         ${featured
           .map(
             (e, i) =>
-              `<li class="home-slider-slide" data-slider-slide aria-roledescription="slide" aria-label="${i + 1} of ${count}">
+              `<li class="home-slider-slide" data-slider-slide>
                 <span class="home-slider-badge" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span>
                 ${eventCard(e, { attendeeCount: e.attendee_count })}
               </li>`,
@@ -813,7 +814,6 @@ function homeCarousel(featured, heading) {
           .join("")}
       </ul>
     </div>
-    <div class="home-slider-rail" data-slider-dots hidden role="tablist" aria-label="Slides"></div>
   </section>
   <script>
     (function () {
@@ -824,82 +824,113 @@ function homeCarousel(featured, heading) {
       var controls = root.querySelector("[data-slider-controls]");
       var prev = root.querySelector("[data-slider-prev]");
       var next = root.querySelector("[data-slider-next]");
-      var dots = root.querySelector("[data-slider-dots]");
       var slides = Array.prototype.slice.call(root.querySelectorAll("[data-slider-slide]"));
-      if (!stage || !track || !controls || !prev || !next || !dots || !slides.length) return;
+      if (!stage || !track || !controls || !prev || !next || slides.length < 2) return;
       var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      var AUTOPLAY_MS = 5000;
-      var index = 0;
-      var timer = null;
+      var DRIFT_PX_PER_SEC = 26;
+
+      // The track is duplicated once so the drift can wrap seamlessly: once
+      // position passes the width of one full copy, snap back by that width
+      // with no visible jump (the duplicate is sitting right where it needs
+      // to be already).
+      var originals = slides.slice();
+      originals.forEach(function (s) {
+        var clone = s.cloneNode(true);
+        clone.setAttribute("aria-hidden", "true");
+        track.appendChild(clone);
+      });
+
+      var pos = 0; // px, moves negative as the strip scrolls left
+      var setWidth = 0;
+      var rafId = null;
+      var dragging = false;
+      var dragStartX = 0;
+      var dragStartPos = 0;
       var paused = false;
+      var lastFrameTime = 0;
 
-      controls.hidden = slides.length <= 1;
-      dots.hidden = slides.length <= 1;
-      var dotEls = slides.map(function (_, i) {
-        var dot = document.createElement("button");
-        dot.type = "button";
-        dot.className = "home-slider-dot";
-        dot.setAttribute("role", "tab");
-        dot.setAttribute("aria-label", "Go to slide " + (i + 1) + " of " + slides.length);
-        dot.addEventListener("click", function () { show(i); });
-        dots.appendChild(dot);
-        return dot;
-      });
-
-      function show(i) {
-        index = (i + slides.length) % slides.length;
-        track.style.transform = "translateX(" + index * -100 + "%)";
-        dotEls.forEach(function (dot, di) {
-          var isActive = di === index;
-          dot.classList.toggle("is-active", isActive);
-          dot.setAttribute("aria-selected", String(isActive));
-        });
-        slides.forEach(function (slide, si) {
-          slide.setAttribute("aria-hidden", String(si !== index));
-        });
-        prev.disabled = slides.length <= 1;
-        next.disabled = slides.length <= 1;
+      function measure() {
+        setWidth = originals.reduce(function (sum, s) { return sum + s.getBoundingClientRect().width; }, 0);
+        var gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap || "0") || 0;
+        setWidth += gap * originals.length;
       }
 
-      function stopAutoplay() {
-        if (timer) {
-          window.clearInterval(timer);
-          timer = null;
+      function apply() {
+        // Keep pos within one set's width behind zero so it never drifts
+        // into float-precision territory over a long session.
+        if (setWidth > 0) {
+          while (pos <= -setWidth) pos += setWidth;
+          while (pos > 0) pos -= setWidth;
         }
-        root.style.removeProperty("--slider-autoplay-ms");
+        track.style.transform = "translate3d(" + pos + "px,0,0)";
       }
 
-      function startAutoplay() {
-        stopAutoplay();
-        if (reduce || paused || slides.length <= 1) return;
-        root.style.setProperty("--slider-autoplay-ms", AUTOPLAY_MS + "ms");
-        timer = window.setInterval(function () { show(index + 1); }, AUTOPLAY_MS);
+      function frame(t) {
+        rafId = window.requestAnimationFrame(frame);
+        if (dragging || paused || reduce) { lastFrameTime = t; return; }
+        if (!lastFrameTime) lastFrameTime = t;
+        var dt = (t - lastFrameTime) / 1000;
+        lastFrameTime = t;
+        pos -= DRIFT_PX_PER_SEC * dt;
+        apply();
       }
 
-      function pause() {
-        paused = true;
-        stopAutoplay();
+      function nudge(dir) {
+        var slideWidth = originals.length ? setWidth / originals.length : 0;
+        pos -= dir * slideWidth;
+        apply();
       }
 
-      function resume() {
-        paused = false;
-        startAutoplay();
+      prev.addEventListener("click", function () { nudge(-1); });
+      next.addEventListener("click", function () { nudge(1); });
+
+      function onPointerDown(e) {
+        if (e.button != null && e.button !== 0) return;
+        dragging = true;
+        dragStartX = e.clientX;
+        dragStartPos = pos;
+        stage.classList.add("is-dragging");
+        if (stage.setPointerCapture && e.pointerId != null) {
+          try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+        }
+      }
+      function onPointerMove(e) {
+        if (!dragging) return;
+        pos = dragStartPos + (e.clientX - dragStartX);
+        apply();
+      }
+      function onPointerUp() {
+        if (!dragging) return;
+        dragging = false;
+        stage.classList.remove("is-dragging");
       }
 
-      prev.addEventListener("click", function () { pause(); show(index - 1); resume(); });
-      next.addEventListener("click", function () { pause(); show(index + 1); resume(); });
-      stage.addEventListener("keydown", function (e) {
-        if (e.key === "ArrowLeft") { pause(); show(index - 1); resume(); }
-        else if (e.key === "ArrowRight") { pause(); show(index + 1); resume(); }
+      stage.addEventListener("pointerdown", onPointerDown);
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerUp);
+      // Dragging a card shouldn't also follow its link.
+      stage.addEventListener("click", function (e) {
+        if (stage.classList.contains("just-dragged")) { e.preventDefault(); e.stopPropagation(); }
+      }, true);
+      stage.addEventListener("pointermove", function (e) {
+        if (dragging && Math.abs(e.clientX - dragStartX) > 6) stage.classList.add("just-dragged");
       });
-      root.addEventListener("mouseenter", pause);
-      root.addEventListener("mouseleave", resume);
-      root.addEventListener("focusin", pause);
-      root.addEventListener("focusout", resume);
-      root.addEventListener("touchstart", pause, { passive: true });
+      stage.addEventListener("pointerdown", function () { stage.classList.remove("just-dragged"); });
 
-      show(0);
-      startAutoplay();
+      stage.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowLeft") { nudge(-1); }
+        else if (e.key === "ArrowRight") { nudge(1); }
+      });
+      root.addEventListener("mouseenter", function () { paused = true; });
+      root.addEventListener("mouseleave", function () { paused = false; });
+      root.addEventListener("focusin", function () { paused = true; });
+      root.addEventListener("focusout", function () { paused = false; });
+
+      window.addEventListener("resize", measure);
+      measure();
+      apply();
+      rafId = window.requestAnimationFrame(frame);
     })();
   </script>`;
 }

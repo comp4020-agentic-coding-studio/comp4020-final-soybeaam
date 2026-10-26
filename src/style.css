@@ -2412,11 +2412,20 @@ h1 .demo-tag {
 }
 
 /* Home: featured slider. Without JS the slides stack as a plain list; the
-   script lays them into a horizontal track, adds the stage, and drives the
-   transform-based animation plus the autoplay rail. */
+   script lays them into a continuous filmstrip that drifts on its own
+   (requestAnimationFrame, not CSS transition — dragging needs to take over
+   the same translateX mid-motion with no handoff jump) and can be grabbed
+   and dragged with mouse, pen or touch. */
 .home-slider-stage {
   overflow: hidden;
   border-radius: var(--radius-xl);
+  cursor: grab;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  /* A soft fade at both edges hints that the strip continues offscreen. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 min(4rem, 6%), #000 94%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 min(4rem, 6%), #000 94%, transparent 100%);
 }
 
 .home-slider-stage:focus-visible {
@@ -2424,20 +2433,29 @@ h1 .demo-tag {
   box-shadow: var(--ring);
 }
 
-.home-slider-track {
-  display: flex;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+.home-slider-stage.is-dragging {
+  cursor: grabbing;
 }
 
-/* No-JS / no scripting fallback: a vertical stack of full-width cards. */
+.home-slider-track {
+  display: flex;
+  width: max-content;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) 0 var(--space-5);
+  gap: var(--space-4);
+  will-change: transform;
+}
+
 .home-slider-slide {
   position: relative;
-  flex: 0 0 100%;
-  min-width: 0;
-  padding: var(--space-2) var(--space-2) var(--space-5);
+  flex: 0 0 auto;
+  width: 17rem;
+  pointer-events: none;
+}
+
+.home-slider-slide .event-card {
+  pointer-events: auto;
 }
 
 .home-slider-badge {
@@ -2459,12 +2477,7 @@ h1 .demo-tag {
   font-size: 0.85rem;
   letter-spacing: 0.02em;
   box-shadow: var(--shadow-xs);
-}
-
-@media (min-width: 64rem) {
-  .home-slider-slide {
-    padding-inline: var(--space-5);
-  }
+  pointer-events: none;
 }
 
 .home-slider-controls {
@@ -2480,58 +2493,21 @@ h1 .demo-tag {
   cursor: default;
 }
 
-.home-slider-rail {
-  display: flex;
-  justify-content: center;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
+/* No JS: scripts never ran, so the track is still exactly the markup —
+   let it scroll horizontally like a plain list instead of clipping. */
+.no-js .home-slider-stage {
+  overflow-x: auto;
+  cursor: auto;
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
-.home-slider-dot {
-  position: relative;
-  width: 2rem;
-  height: 0.3rem;
-  padding: 0;
-  overflow: hidden;
-  border: none;
-  border-radius: 999px;
-  background: var(--line);
-  cursor: pointer;
+.no-js .home-slider-track {
+  width: auto;
 }
 
-.home-slider-dot::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform-origin: left;
-  transform: scaleX(0);
-  background: var(--accent);
-  border-radius: inherit;
-}
-
-.home-slider-dot:hover {
-  background: var(--muted);
-}
-
-.home-slider-dot.is-active::after {
-  transform: scaleX(1);
-  transition: transform var(--slider-autoplay-ms, 0s) linear;
-}
-
-.home-slider-dot:focus-visible {
-  outline: none;
-  box-shadow: var(--ring);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .home-slider-track {
-    transition: none;
-  }
-
-  .home-slider-dot.is-active::after {
-    transition: none;
-    transform: scaleX(1);
-  }
+.no-js .home-slider-slide {
+  pointer-events: auto;
 }
 
 /* Home: closing call to action */
