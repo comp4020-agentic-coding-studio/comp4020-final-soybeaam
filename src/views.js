@@ -922,8 +922,6 @@ function homeCarousel(featured, heading) {
         if (e.key === "ArrowLeft") { nudge(-1); }
         else if (e.key === "ArrowRight") { nudge(1); }
       });
-      root.addEventListener("mouseenter", function () { paused = true; });
-      root.addEventListener("mouseleave", function () { paused = false; });
       root.addEventListener("focusin", function () { paused = true; });
       root.addEventListener("focusout", function () { paused = false; });
 
