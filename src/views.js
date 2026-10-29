@@ -477,6 +477,7 @@ function siteFooter(user) {
       <div class="footer-brand">
         <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span>Quad</a>
         <p class="footer-note">Events from any campus, club or community. Anyone can host, anyone can check in.</p>
+        <p class="footer-note footer-credit">Images sourced from <a href="https://www.pexels.com">Pexels</a>.</p>
       </div>
       <nav class="footer-cols" aria-label="Footer">
         <div class="footer-col">
@@ -970,7 +971,7 @@ export function homePage({
         <a class="button button-secondary button-lg" href="${hostHref}">Host an event</a>
       </div>
     </div>
-    <div class="home-hero-art">${HERO_ART}</div>
+    <div class="home-hero-art" tabindex="0" role="img" aria-label="Animated illustration of event tickets checking in">${HERO_ART}</div>
   </section>`;
 
   const ctaBand = `<section class="home-cta" aria-labelledby="home-cta-title">
