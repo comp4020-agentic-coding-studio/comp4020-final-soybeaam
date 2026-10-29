@@ -792,138 +792,152 @@ function homeStats(stats) {
   </section>`;
 }
 
-// Horizontal scroll-snap row. Without JS it is a plain scrollable list; the
-// script reveals the prev/next buttons, adds dot indicators, and (on wide
-// screens, outside prefers-reduced-motion) auto-advances the track like a
-// slideshow, pausing on hover/focus/touch so it never fights the reader.
+// Home slider: a draggable filmstrip that shows several events at once and
+// drifts sideways on its own. The track's position is just a translateX in
+// pixels, so autoplay (a slow constant drift, rAF-driven) and pointer drag
+// (grab the stage, move it 1:1 with the pointer) are the same code path —
+// dragging simply takes over the position autoplay was already animating,
+// and releasing hands it back once the pointer stops touching the strip.
+// Without JS the events stack as a plain readable list.
 function homeCarousel(featured, heading) {
   if (!featured || !featured.length) return "";
-  return `<section class="section home-carousel" aria-labelledby="home-carousel-title" data-carousel>
+  const count = featured.length;
+  return `<section class="section home-slider" aria-labelledby="home-slider-title" data-slider>
     <div class="split section-head home-section-head">
-      <h2 id="home-carousel-title">${escape(heading)}</h2>
-      <div class="cluster home-carousel-controls" data-carousel-controls hidden>
-        <button type="button" class="button button-secondary button-sm" data-carousel-prev aria-controls="home-carousel-track">
-          <span aria-hidden="true">&larr;</span> Previous
-        </button>
-        <button type="button" class="button button-secondary button-sm" data-carousel-next aria-controls="home-carousel-track">
-          Next <span aria-hidden="true">&rarr;</span>
-        </button>
+      <h2 id="home-slider-title">${escape(heading)}</h2>
+      <div class="cluster home-slider-controls" data-slider-controls hidden>
+        <button type="button" class="icon-button home-slider-arrow" data-slider-prev aria-label="Scroll left">${icon("back")}</button>
+        <button type="button" class="icon-button home-slider-arrow home-slider-arrow-next" data-slider-next aria-label="Scroll right">${icon("back")}</button>
       </div>
     </div>
-    <ul class="home-carousel-track" id="home-carousel-track" tabindex="0" aria-label="${escape(heading)}">
-      ${featured
-        .map(
-          (e) =>
-            `<li class="home-carousel-item">${eventCard(e, { attendeeCount: e.attendee_count })}</li>`,
-        )
-        .join("")}
-    </ul>
-    <div class="cluster home-carousel-dots" data-carousel-dots hidden role="tablist" aria-label="Slides"></div>
+    <div class="home-slider-stage" data-slider-stage tabindex="0" aria-label="${escape(heading)}, draggable" role="group">
+      <ul class="home-slider-track" data-slider-track>
+        ${featured
+          .map(
+            (e, i) =>
+              `<li class="home-slider-slide" data-slider-slide>
+                <span class="home-slider-badge" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span>
+                ${eventCard(e, { attendeeCount: e.attendee_count })}
+              </li>`,
+          )
+          .join("")}
+      </ul>
+    </div>
   </section>
   <script>
     (function () {
-      var root = document.querySelector("[data-carousel]");
+      var root = document.querySelector("[data-slider]");
       if (!root) return;
-      var track = root.querySelector(".home-carousel-track");
-      var controls = root.querySelector("[data-carousel-controls]");
-      var prev = root.querySelector("[data-carousel-prev]");
-      var next = root.querySelector("[data-carousel-next]");
-      var dots = root.querySelector("[data-carousel-dots]");
-      var items = Array.prototype.slice.call(root.querySelectorAll(".home-carousel-item"));
-      if (!track || !controls || !prev || !next || !dots || !items.length) return;
+      var stage = root.querySelector("[data-slider-stage]");
+      var track = root.querySelector("[data-slider-track]");
+      var controls = root.querySelector("[data-slider-controls]");
+      var prev = root.querySelector("[data-slider-prev]");
+      var next = root.querySelector("[data-slider-next]");
+      var slides = Array.prototype.slice.call(root.querySelectorAll("[data-slider-slide]"));
+      if (!stage || !track || !controls || !prev || !next || slides.length < 2) return;
       var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      var wideQuery = window.matchMedia && window.matchMedia("(min-width: 64rem)");
-      var AUTOPLAY_MS = 5000;
-      var timer = null;
+      var DRIFT_PX_PER_SEC = 26;
+
+      // The track is duplicated once so the drift can wrap seamlessly: once
+      // position passes the width of one full copy, snap back by that width
+      // with no visible jump (the duplicate is sitting right where it needs
+      // to be already).
+      var originals = slides.slice();
+      originals.forEach(function (s) {
+        var clone = s.cloneNode(true);
+        clone.setAttribute("aria-hidden", "true");
+        track.appendChild(clone);
+      });
+
+      var pos = 0; // px, moves negative as the strip scrolls left
+      var setWidth = 0;
+      var rafId = null;
+      var dragging = false;
+      var dragStartX = 0;
+      var dragStartPos = 0;
       var paused = false;
-      var dotEls = items.map(function (item, i) {
-        var dot = document.createElement("button");
-        dot.type = "button";
-        dot.className = "home-carousel-dot";
-        dot.setAttribute("role", "tab");
-        dot.setAttribute("aria-label", "Go to slide " + (i + 1) + " of " + items.length);
-        dot.addEventListener("click", function () {
-          item.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest", inline: "start" });
-        });
-        dots.appendChild(dot);
-        return dot;
-      });
-      function activeIndex() {
-        var trackLeft = track.scrollLeft;
-        var closest = 0;
-        var closestDist = Infinity;
-        items.forEach(function (item, i) {
-          var dist = Math.abs(item.offsetLeft - trackLeft);
-          if (dist < closestDist) {
-            closestDist = dist;
-            closest = i;
-          }
-        });
-        return closest;
+      var lastFrameTime = 0;
+
+      function measure() {
+        setWidth = originals.reduce(function (sum, s) { return sum + s.getBoundingClientRect().width; }, 0);
+        var gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap || "0") || 0;
+        setWidth += gap * originals.length;
       }
-      function sync() {
-        var max = track.scrollWidth - track.clientWidth;
-        var isWide = wideQuery ? wideQuery.matches : false;
-        controls.hidden = max <= 2;
-        prev.disabled = track.scrollLeft <= 2;
-        next.disabled = track.scrollLeft >= max - 2;
-        dots.hidden = !isWide || max <= 2;
-        var active = activeIndex();
-        dotEls.forEach(function (dot, i) {
-          var isActive = i === active;
-          dot.classList.toggle("is-active", isActive);
-          dot.setAttribute("aria-selected", String(isActive));
-        });
-      }
-      function go(dir) {
-        var max = track.scrollWidth - track.clientWidth;
-        if (dir > 0 && track.scrollLeft >= max - 2) {
-          track.scrollTo({ left: 0, behavior: reduce ? "auto" : "smooth" });
-          return;
+
+      function apply() {
+        // Keep pos within one set's width behind zero so it never drifts
+        // into float-precision territory over a long session.
+        if (setWidth > 0) {
+          while (pos <= -setWidth) pos += setWidth;
+          while (pos > 0) pos -= setWidth;
         }
-        track.scrollBy({ left: dir * track.clientWidth * 0.85, behavior: reduce ? "auto" : "smooth" });
+        track.style.transform = "translate3d(" + pos + "px,0,0)";
       }
-      function canAutoplay() {
-        return !reduce && wideQuery && wideQuery.matches && items.length > 1 && !paused;
+
+      function frame(t) {
+        rafId = window.requestAnimationFrame(frame);
+        if (dragging || paused || reduce) { lastFrameTime = t; return; }
+        if (!lastFrameTime) lastFrameTime = t;
+        var dt = (t - lastFrameTime) / 1000;
+        lastFrameTime = t;
+        pos -= DRIFT_PX_PER_SEC * dt;
+        apply();
       }
-      function stopAutoplay() {
-        if (timer) {
-          window.clearInterval(timer);
-          timer = null;
+
+      function nudge(dir) {
+        var slideWidth = originals.length ? setWidth / originals.length : 0;
+        pos -= dir * slideWidth;
+        apply();
+      }
+
+      prev.addEventListener("click", function () { nudge(-1); });
+      next.addEventListener("click", function () { nudge(1); });
+
+      function onPointerDown(e) {
+        if (e.button != null && e.button !== 0) return;
+        dragging = true;
+        dragStartX = e.clientX;
+        dragStartPos = pos;
+        stage.classList.add("is-dragging");
+        if (stage.setPointerCapture && e.pointerId != null) {
+          try { stage.setPointerCapture(e.pointerId); } catch (err) {}
         }
       }
-      function startAutoplay() {
-        stopAutoplay();
-        if (!canAutoplay()) return;
-        timer = window.setInterval(function () {
-          go(1);
-        }, AUTOPLAY_MS);
+      function onPointerMove(e) {
+        if (!dragging) return;
+        pos = dragStartPos + (e.clientX - dragStartX);
+        apply();
       }
-      function pause() {
-        paused = true;
-        stopAutoplay();
+      function onPointerUp() {
+        if (!dragging) return;
+        dragging = false;
+        stage.classList.remove("is-dragging");
       }
-      function resume() {
-        paused = false;
-        startAutoplay();
-      }
-      prev.addEventListener("click", function () { go(-1); });
-      next.addEventListener("click", function () { go(1); });
-      track.addEventListener("scroll", sync, { passive: true });
-      window.addEventListener("resize", function () {
-        sync();
-        startAutoplay();
+
+      stage.addEventListener("pointerdown", onPointerDown);
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerUp);
+      // Dragging a card shouldn't also follow its link.
+      stage.addEventListener("click", function (e) {
+        if (stage.classList.contains("just-dragged")) { e.preventDefault(); e.stopPropagation(); }
+      }, true);
+      stage.addEventListener("pointermove", function (e) {
+        if (dragging && Math.abs(e.clientX - dragStartX) > 6) stage.classList.add("just-dragged");
       });
-      root.addEventListener("mouseenter", pause);
-      root.addEventListener("mouseleave", resume);
-      root.addEventListener("focusin", pause);
-      root.addEventListener("focusout", resume);
-      root.addEventListener("touchstart", pause, { passive: true });
-      if (wideQuery && wideQuery.addEventListener) {
-        wideQuery.addEventListener("change", startAutoplay);
-      }
-      sync();
-      startAutoplay();
+      stage.addEventListener("pointerdown", function () { stage.classList.remove("just-dragged"); });
+
+      stage.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowLeft") { nudge(-1); }
+        else if (e.key === "ArrowRight") { nudge(1); }
+      });
+      root.addEventListener("focusin", function () { paused = true; });
+      root.addEventListener("focusout", function () { paused = false; });
+
+      window.addEventListener("resize", measure);
+      measure();
+      apply();
+      rafId = window.requestAnimationFrame(frame);
     })();
   </script>`;
 }
