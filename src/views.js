@@ -844,11 +844,6 @@ function homeCarousel(featured, heading) {
       // with no visible jump (the duplicate is sitting right where it needs
       // to be already).
       var originals = slides.slice();
-      originals.forEach(function (s) {
-        var clone = s.cloneNode(true);
-        clone.setAttribute("aria-hidden", "true");
-        track.appendChild(clone);
-      });
 
       var pos = 0; // px, moves negative as the strip scrolls left
       var setWidth = 0;
@@ -864,6 +859,15 @@ function homeCarousel(featured, heading) {
         var gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap || "0") || 0;
         setWidth += gap * originals.length;
       }
+
+      // Measured before cloning: reading layout right after the appendChild
+      // writes below would force a synchronous reflow for every slide.
+      measure();
+      originals.forEach(function (s) {
+        var clone = s.cloneNode(true);
+        clone.setAttribute("aria-hidden", "true");
+        track.appendChild(clone);
+      });
 
       function apply() {
         // Keep pos within one set's width behind zero so it never drifts
@@ -936,7 +940,6 @@ function homeCarousel(featured, heading) {
       root.addEventListener("focusout", function () { paused = false; });
 
       window.addEventListener("resize", measure);
-      measure();
       apply();
       rafId = window.requestAnimationFrame(frame);
     })();
