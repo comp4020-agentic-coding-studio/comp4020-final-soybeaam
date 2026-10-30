@@ -445,7 +445,7 @@ function sidebarUser(user, active) {
 // paint. classList.add, not className, so the later no-js -> js swap still works.
 const THEME_HEAD_SCRIPT = `(function(){try{
     var d=document.documentElement;
-    var a=localStorage.getItem("quad-accent");
+    var a=JSON.parse(localStorage.getItem("quad-accent"));
     if(a&&a!=="purple")d.setAttribute("data-accent",a);
     if(localStorage.getItem("quad:sidebar-collapsed")==="true")d.classList.add("sb-collapsed");
   }catch(e){}})();`;
