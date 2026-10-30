@@ -331,6 +331,13 @@ export function rotateToken(oldToken) {
       const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table);
       if (exists) db.prepare(`UPDATE ${table} SET user_token = ? WHERE user_token = ?`).run(newToken, oldToken);
     }
+    // dm_messages has two token columns instead of one (sender and
+    // recipient), so it can't share the loop above.
+    const dmExists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'dm_messages'").get();
+    if (dmExists) {
+      db.prepare("UPDATE dm_messages SET from_token = ? WHERE from_token = ?").run(newToken, oldToken);
+      db.prepare("UPDATE dm_messages SET to_token = ? WHERE to_token = ?").run(newToken, oldToken);
+    }
     return newToken;
   });
 }
