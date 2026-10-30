@@ -983,8 +983,7 @@ html.js {
   }
 
   .sb-collapsed .theme-dial {
-    flex-direction: column;
-    border-radius: var(--radius);
+    padding: 2px;
   }
 
   .sb-collapsed .sb-foot {
