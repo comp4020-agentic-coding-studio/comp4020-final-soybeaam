@@ -15,6 +15,13 @@ today"; everything else is in "Where this is going" and is not built.
 - Log in with email and password, with your session persisting when
   you come back. Passwords are hashed with `node:crypto`'s scrypt
   (`src/auth.js`), not stored in plain text.
+- The seeded demo accounts (`alex@quad.test`, `sam@quad.test`,
+  `maya@quad.test`, `tom@quad.test`, plus `admin@quad.test` locally) all
+  use the password `password123` on purpose, so anyone reviewing or
+  crit-testing the app can log in as a demo user without credentials
+  being handed out separately. They're seeded fake people with no real
+  data behind them, not an account you'd ever want for something real —
+  don't reuse this pattern for actual user accounts.
 - A sidebar app: Home, Discover, My Events, Saved, Event Map,
   Communities, Messages, Notifications, Tickets, Announcements,
   Activity and Settings.

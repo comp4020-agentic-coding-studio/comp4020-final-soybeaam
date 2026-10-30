@@ -120,6 +120,7 @@ function applyDiscoverFilters(all, f) {
 export default async function socialRoutes(app) {
   app.get("/client.js", async (req, reply) => {
     reply
+      .header("Cache-Control", "public, max-age=3600")
       .type("application/javascript; charset=utf-8")
       .send(readFileSync(new URL("../client.js", import.meta.url), "utf8"));
   });
@@ -128,6 +129,7 @@ export default async function socialRoutes(app) {
   // activity, notifications, messages). Only loaded by pages that need it.
   app.get("/pages.js", async (req, reply) => {
     reply
+      .header("Cache-Control", "public, max-age=3600")
       .type("application/javascript; charset=utf-8")
       .send(readFileSync(new URL("../pages.js", import.meta.url), "utf8"));
   });
@@ -135,6 +137,7 @@ export default async function socialRoutes(app) {
   // Real maps (MapLibre + OpenFreeMap) for the event page and /map.
   app.get("/maps.js", async (req, reply) => {
     reply
+      .header("Cache-Control", "public, max-age=3600")
       .type("application/javascript; charset=utf-8")
       .send(readFileSync(new URL("../maps.js", import.meta.url), "utf8"));
   });
