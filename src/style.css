@@ -2509,6 +2509,7 @@ h1 .demo-tag {
 
 /* Home: hero */
 .home-hero {
+  position: relative;
   display: grid;
   gap: var(--space-6);
   align-items: center;
@@ -2517,6 +2518,51 @@ h1 .demo-tag {
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   overflow: hidden;
+}
+
+/* Animated WebGL gradient (@firecms/neat, "Stripe" preset) painted behind the
+   hero text, loaded by hero-gradient.js. Sits above --gradient-hero so that
+   CSS background keeps showing if WebGL or the CDN import fails. */
+.home-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.home-hero-text,
+.home-hero-art {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-hero-bg {
+    display: none;
+  }
+}
+
+/* Once the gradient loads (has-neat-bg, set by hero-gradient.js) the hero
+   text sits on a busy, saturated background rather than the quiet
+   --gradient-hero wash, so it gets light type and a dark scrim card instead
+   of the page's --ink/--muted tokens. */
+.home-hero.has-neat-bg .home-hero-text {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, #0b1030 55%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.home-hero.has-neat-bg .eyebrow,
+.home-hero.has-neat-bg h1,
+.home-hero.has-neat-bg .home-hero-sub {
+  color: #fff;
+}
+
+.home-hero.has-neat-bg .home-hero-sub {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 @media (min-width: 52rem) {
