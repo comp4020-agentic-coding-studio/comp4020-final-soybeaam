@@ -1099,12 +1099,7 @@ export function loginPage({ error = "", email = "", field = "", next = "", theme
             </div>
             ${loadingButton("Log in", { loadingLabel: "Logging in...", className: "button-block button-lg" })}
           </form>
-          <div class="auth-demo">
-            <h2 class="auth-demo-title">Demo accounts</h2>
-            <p>This is a demo app. Log in as <code>alex@quad.test</code> with the password <code>password123</code>. The other seeded accounts use the same password.</p>
-          </div>
         </section>
-        <p class="auth-foot muted small"><a href="/admin/login">Admin login</a> (development only, for the seeded admin account)</p>
       </div>
       <script>
         (function () {

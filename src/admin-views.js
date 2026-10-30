@@ -62,7 +62,7 @@ export function adminLoginPage({ user = null, error = "", username = "", theme =
   const body = `<div class="admin-login">
     ${pageHeader({ eyebrow: "Admin", title: "Admin login" })}
     <div class="callout callout-warning admin-dev-banner" role="note">
-      <strong>Development only:</strong> this login accepts admin / admin and is turned off on the deployed site.
+      <strong>Development only:</strong> this login is turned off on the deployed site.
     </div>
     <form method="post" action="/admin/login" class="form-block stack" data-loading novalidate>
       ${error ? `<div class="callout callout-error" role="alert">${escape(error)}</div>` : ""}
@@ -95,7 +95,7 @@ export function adminLoginDisabledPage({ user = null, theme = "system" } = {}) {
     theme,
     body: errorState({
       title: "Admin login is turned off here",
-      text: "The admin / admin login only works in local development. Admins on this site log in through the normal login page.",
+      text: "This login only works in local development. Admins on this site log in through the normal login page.",
       action: { href: "/login", label: "Go to login" },
     }),
   });
