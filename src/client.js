@@ -281,7 +281,7 @@
   function avatarHtml(u) {
     u = u || {};
     if (u.avatar_url && /^(https?:\/\/|\/(?!\/))/i.test(u.avatar_url)) {
-      return '<img class="avatar avatar-md" src="' + esc(u.avatar_url) + '" alt="" />';
+      return '<img class="avatar avatar-md" src="' + esc(u.avatar_url) + '" alt="" loading="lazy" />';
     }
     var key = String(u.username || u.name || ""), h = 0;
     for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % 360;
