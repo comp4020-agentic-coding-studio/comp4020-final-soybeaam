@@ -1,14 +1,29 @@
 # Process overview
 
-## The build
+## From brief to project
 
-## Picking the stack
+The brief fixes three requirements (multi-user, real-time, persistent) and leaves "good" open. From HCI to production "good"
 
-## Scoping
 
-## Building it
+## The stack and what it costs
 
-## Directing, grounding and correcting the agent
+The app is deployed on fly.io and uses a SQLlite backend. 
+The app uses a signed, httpOnly cookie named session that stores the user's token (see src/server.js:44-54). Because it's httpOnly, you can't read or set it via document.cookie/JS which is intentional to prevents XSS token theft. 
+
+## Several people at once
+
+## Importing events
+
+A bit issue I ran into was a legal one. 
+
+## Corrections that landed
+- The CLAUDE.md file is a source of grounding which references HANDBOOK.md. Unfortunately, there were times when claude did not follow these instructions, as some session conversations were missed.
+## How I directed, grounded and corrected the work. 
+- The CLAUDE.md file is a source of grounding which references HANDBOOK.md, which lays out the groundrules for the AI.
+
+### Fix on exposed host details with raw session token 
+Early on, the app was found to be surfacing host details by exposing the raw session token stored in events.created_by — that token is the session credential, so leaking it would let a stranger impersonate the host. The fix was publicUser() in src/social-db.js:181 — the only user shape allowed to leave that module. It explicitly strips token, password hash, email, role and preferences, returning just username, display_name, avatar_url, bio, location, interests. Every view file that renders a person (event-views.js, discover-views.js, community-views.js) is commented to say it only ever receives this shape — so there's a structural chokepoint, not a per-page discipline that could be forgotten.
+
 
 ## What I'd still change
 
@@ -112,3 +127,5 @@ part of the submission text itself.
 - [`41afd8f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/41afd8f) — Merge branch 'worktree-coming-up-carousel' (updated tip). Branch had diverged from what main had previously merged; re-merged the current tip.
 - [`cf9bfc8`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cf9bfc8) — Merge branch 'merge-all' (theme-light-mode, footer pexels credit, purple accent hero). Brought in the three branches `merge-all` had already combined.
 - Session also: deleted 5 fully-merged branches (local + remote) and their worktrees where not locked by another active session; deployed current `main` to Fly (`comp4020-final-soybeaam.fly.dev`); renamed 28 (local) + 4 (Fly volume) leftover "Spec-created event {timestamp}" rows to names matching their assigned cover photos, directly in each `data/app.db` (gitignored, no commit needed for that part).
+
+Despite telling the AI to record conversation logs in 
