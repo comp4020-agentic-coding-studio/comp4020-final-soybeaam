@@ -142,6 +142,14 @@ export default async function socialRoutes(app) {
       .send(readFileSync(new URL("../maps.js", import.meta.url), "utf8"));
   });
 
+  // Animated gradient (@firecms/neat) behind the home hero.
+  app.get("/hero-gradient.js", async (req, reply) => {
+    reply
+      .header("Cache-Control", "public, max-age=3600")
+      .type("application/javascript; charset=utf-8")
+      .send(readFileSync(new URL("../hero-gradient.js", import.meta.url), "utf8"));
+  });
+
   // Filters run here so the page works without JS. Every upcoming event is
   // also sent (non-matching ones hidden) so pages.js can filter instantly.
   app.get("/discover", async (req, reply) => {

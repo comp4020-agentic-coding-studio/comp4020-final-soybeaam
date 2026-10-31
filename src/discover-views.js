@@ -169,11 +169,12 @@ export function discoverPage({ user, events, all = events, filters = {}, categor
     theme,
     active: "discover",
     bodyClass: "page-discover",
-    scripts: ["/pages.js"],
+    scripts: ["/pages.js", "/hero-gradient.js"],
     body: `<form class="disc" method="get" action="/discover" role="search" aria-label="Find events" data-discover data-initial-sort="${escape(
       f.sort ?? "",
     )}">
       <section class="disc-hero" style="--hue:18">
+        <canvas class="disc-hero-bg" data-neat-gradient aria-hidden="true"></canvas>
         <div class="ev-hero-art" aria-hidden="true"><span></span><span></span><span></span></div>
         <p class="disc-eyebrow">Discover</p>
         <h1>What's on around Sydney</h1>
