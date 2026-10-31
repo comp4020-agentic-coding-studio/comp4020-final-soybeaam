@@ -292,12 +292,14 @@
 
   // Mirrors chatMessage() in event-views.js for the kinds a user can post.
   function messageHtml(m) {
-    var name = esc(m.author && m.author.display_name || "You");
+    var mine = m.is_mine !== false;
+    var name = esc(mine ? (m.author && m.author.display_name || "You") : (m.author && m.author.display_name || "Someone"));
     // Fresh reaction buttons from the template chatRoom() renders, so a
     // message posted into an empty room still gets them.
     var tpl = $("template[data-react-tpl]", chat);
     var reactTpl = tpl ? tpl.innerHTML : "";
-    return '<li class="msg msg-' + esc(m.kind) + ' is-mine" id="msg-' + m.id + '" data-msg="' + m.id + '">' +
+    var canPost = chat.hasAttribute("data-can-post");
+    return '<li class="msg msg-' + esc(m.kind) + (mine ? " is-mine" : "") + '" id="msg-' + m.id + '" data-msg="' + m.id + '">' +
       '<span class="avatar-wrap">' + avatarHtml(m.author) + '<span class="online-dot" aria-hidden="true"></span></span>' +
       '<div class="msg-main"><p class="msg-head"><strong class="msg-name">' + name + "</strong>" +
       (m.from_host ? '<span class="pill pill-accent msg-host">Host</span>' : "") +
@@ -306,7 +308,7 @@
       (m.kind === "question" ? '<p class="msg-flag">Question for the organiser</p>' : "") +
       '<p class="msg-body">' + esc(m.body) + "</p>" +
       '<div class="msg-actions">' + reactTpl +
-      '<button type="button" class="msg-reply" data-reply="' + m.id + '" data-reply-name="' + name + '">Reply</button></div></div></li>';
+      (canPost ? '<button type="button" class="msg-reply" data-reply="' + m.id + '" data-reply-name="' + name + '">Reply</button>' : "") + "</div></div></li>";
   }
 
   function setReply(id, name) {
@@ -348,6 +350,38 @@
         err.hidden = false;
       }).then(function () { btn.disabled = false; });
     });
+  }
+
+  /* ---- Chat: poll for messages other people post ---- */
+
+  if (chat && window.fetch) {
+    var pollUrl = chat.getAttribute("data-chat-poll");
+    var log = $("[data-chat-log]", chat);
+    var lastId = Number(chat.getAttribute("data-chat-last")) || 0;
+    var polling = false;
+    var tick = function () {
+      if (polling || d.hidden || !pollUrl) return;
+      polling = true;
+      fetch(pollUrl + "?after=" + lastId, { credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then(function (res) { return res.ok ? res.json() : []; })
+        .then(function (msgs) {
+          if (!Array.isArray(msgs) || !msgs.length) return;
+          var empty = $("[data-chat-empty]", log);
+          if (empty) empty.remove();
+          msgs.forEach(function (m) {
+            if ($("#msg-" + m.id, log)) return;
+            log.insertAdjacentHTML("beforeend", messageHtml(m));
+            paintReactions(log.lastElementChild);
+          });
+          lastId = msgs[msgs.length - 1].id;
+          var atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+          if (atBottom) log.scrollTop = log.scrollHeight;
+        })
+        .catch(function () {})
+        .then(function () { polling = false; });
+    };
+    setInterval(tick, 4000);
+    d.addEventListener("visibilitychange", function () { if (!d.hidden) tick(); });
   }
 
   /* ---- Forms enhanced with fetch: maybe toggle, pin toggle ---- */

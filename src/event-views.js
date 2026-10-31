@@ -665,7 +665,9 @@ export function chatRoom({
 
   return `<section class="chat${inline ? " is-inline" : ""}" id="chat" aria-labelledby="chat-title" data-chat${
     inline ? " data-chat-inline" : ""
-  }${canPost ? ` data-can-post` : ""}>
+  }${canPost ? ` data-can-post` : ""} data-chat-poll="${escape(action)}/poll"${
+    messages.length ? ` data-chat-last="${messages[messages.length - 1].id}"` : ""
+  }>
     <header class="chat-head">
       <div class="chat-title-wrap">
         <h2 id="chat-title">${escape(title)}</h2>
