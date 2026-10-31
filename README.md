@@ -114,6 +114,41 @@ obviously fake rather than a real payment form, and whether the
 design actually "looks nice" to someone who isn't me. None of these
 have a test.
 
+## Data privacy
+
+What leaving a user's password, session token or email out of a response
+actually means is checked in `spec/auth.test.ts` (10 tests), against the
+running app:
+
+- A tampered or forged session cookie is treated as logged out, never as
+  another account (the signature check fails closed).
+- Logging out clears the session; the next request with the same cookie is
+  anonymous.
+- Changing your password rotates your session token and signs out every
+  other device using the old one.
+- `/settings`, `/messages`, `/my-events`, `/notifications` and `/tickets` all
+  redirect an anonymous visitor to `/login` rather than rendering anything.
+  (`/saved` is the one exception: it's a client-side, localStorage-only list
+  with nothing private held server-side, so it's public like the home page.)
+- An anonymous visitor can't send a direct message.
+- A DM thread between two users never appears for a third, uninvolved user —
+  including when that user guesses the thread id directly via `?thread=`
+  (thread ids are a deterministic sort of both users' tokens, never accepted
+  from the client as a way to select whose messages come back).
+- You can't message yourself as a way to read someone else's thread as a
+  stand-in.
+- Another user's profile page never includes their email or password hash.
+- The event attendee list never includes a check-in's raw session token
+  (identity is always joined from `users.email`, never read off
+  `checkins.user_token` directly).
+- An unknown email and a known email with the wrong password get an
+  identical login response, so the form never reveals which accounts exist.
+
+`publicUser()` (`src/social-db.js`) is the one function every user row goes
+through before reaching a template or a JSON response; it strips `token`,
+`password_hash`, `email` and `role` unconditionally, so none of the pages
+above can leak those fields even by accident.
+
 ## Where this is going
 
 None of this exists yet, and nothing above depends on it.
