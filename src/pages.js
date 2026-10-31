@@ -120,6 +120,34 @@
         $("input[name=q]", disc).focus();
       });
     });
+
+    // Poll for events other people created or published since this page
+    // loaded. New cards are inserted hidden/shown the same as any other
+    // card, so the existing filter/sort logic (apply()) places them.
+    if (window.fetch) {
+      var discPolling = false;
+      var discTick = function () {
+        if (discPolling || d.hidden) return;
+        discPolling = true;
+        var known = items.map(function (li) { return li.getAttribute("data-event-slug"); }).join(",");
+        fetch("/discover/poll?known=" + encodeURIComponent(known), { credentials: "same-origin", headers: { Accept: "application/json" } })
+          .then(function (res) { return res.ok ? res.json() : null; })
+          .then(function (data) {
+            if (!data || !data.cards) return;
+            var tmp = d.createElement("ul");
+            tmp.innerHTML = data.cards;
+            var added = $$(".sx-item", tmp);
+            if (!added.length) return;
+            added.forEach(function (li) { grid.appendChild(li); });
+            items = $$(".sx-item", grid);
+            apply();
+          })
+          .catch(function () {})
+          .then(function () { discPolling = false; });
+      };
+      setInterval(discTick, 4000);
+      d.addEventListener("visibilitychange", function () { if (!d.hidden) discTick(); });
+    }
   }
 
   /* ---- Saved: show only events saved on this device ---- */

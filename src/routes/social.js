@@ -30,7 +30,7 @@ import {
   canManageEvent,
   CHAT_MAX,
 } from "../social-db.js";
-import { notFoundPage, forbiddenPage } from "../views.js";
+import { notFoundPage, forbiddenPage, escape } from "../views.js";
 import {
   discoverPage,
   myEventsPage,
@@ -45,6 +45,7 @@ import {
   activityPage,
   formErrorPage,
 } from "../social-views.js";
+import { socialEventCard } from "../discover-views.js";
 import { html, field, backTo, wantsJson } from "./util.js";
 
 const EVENT_NOT_FOUND = "There's no event at that address. It may have been removed.";
@@ -173,6 +174,21 @@ export default async function socialRoutes(app) {
         communities: communities(),
       }),
     );
+  });
+
+  // Polled by Discover for events created by anyone since the newest slug the
+  // page already has. ?known=<comma-separated slugs currently on the page>.
+  // Returns {cards: "<li>...</li>..."} — rendered server-side so a new card
+  // looks exactly like one from a full page load.
+  app.get("/discover/poll", async (req, reply) => {
+    const known = new Set(queryString(req, "known").split(",").filter(Boolean));
+    const fresh = withFaces(listSocialEvents().filter((e) => !e.is_past && !known.has(e.slug)));
+    reply.send({
+      cards: fresh
+        .map((e) => `<li class="sx-item" data-event-slug="${escape(e.slug)}">${socialEventCard(e)}</li>`)
+        .join(""),
+      slugs: fresh.map((e) => e.slug),
+    });
   });
 
   app.get("/my-events", async (req, reply) => {
