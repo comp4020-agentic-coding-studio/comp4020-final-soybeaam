@@ -282,6 +282,17 @@ export function findUserByEmail(email) {
   return db.prepare("SELECT * FROM users WHERE email = ?").get(String(email ?? "").trim().toLowerCase());
 }
 
+// Creates a brand-new account (sign-up). Caller already checked the email is
+// free, the password meets the length rule, and name isn't blank. role is
+// always "user" — there's no self-serve path to admin.
+export function createUser({ email, passwordHash, name }) {
+  const token = crypto.randomUUID();
+  db.prepare(
+    `INSERT INTO users (token, email, password_hash, name, role) VALUES (?, ?, ?, ?, 'user')`,
+  ).run(token, String(email).trim().toLowerCase(), passwordHash, String(name).trim());
+  return userByToken(token);
+}
+
 // Usernames are stored lowercase (updateProfile/updateUserAdmin) and looked
 // up case-insensitively, so "Maya" and "maya" are the same person.
 export function findUserByUsername(username) {
