@@ -6,6 +6,7 @@ import { gzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import {
   findUserByEmail,
+  createUser,
   userByToken,
   listEvents,
   getEvent,
@@ -16,10 +17,11 @@ import {
   CATEGORIES,
   stats,
   THEMES,
+  LIMITS,
 } from "./db.js";
 import { renderMarkdown } from "./markdown.js";
-import { verifyPassword } from "./auth.js";
-import { homePage, loginPage, newEventPage, payPage, readmePage, notFoundPage } from "./views.js";
+import { verifyPassword, hashPassword } from "./auth.js";
+import { homePage, loginPage, signupPage, newEventPage, payPage, readmePage, notFoundPage } from "./views.js";
 import { eventPage, capacityBlock, attendeesBody, announcementsBody } from "./event-views.js";
 import { geocode, distanceFromCbdKm } from "./geocode.js";
 import { ALL_EVENT_IMAGES } from "./event-images.js";
@@ -139,6 +141,39 @@ app.post("/login", async (req, reply) => {
     return;
   }
   // The session is still the signed users.token cookie (docs/decisions/0001).
+  reply.setCookie("session", user.token, { path: "/", httpOnly: true, signed: true, sameSite: "lax" });
+  reply.redirect(next || "/");
+});
+
+app.get("/signup", async (req, reply) => {
+  const next = safeNext(req.query.next);
+  if (req.user) {
+    reply.redirect(next || "/");
+    return;
+  }
+  reply.type("text/html").send(signupPage({ next, theme: req.guestTheme }));
+});
+
+app.post("/signup", async (req, reply) => {
+  const name = String(req.body?.name ?? "").trim();
+  const email = String(req.body?.email ?? "").trim().toLowerCase();
+  const password = String(req.body?.password ?? "");
+  const next = safeNext(req.body?.next);
+  const errors = {};
+  if (!name) errors.name = "Enter your name.";
+  else if (name.length > LIMITS.name) errors.name = `Keep it to ${LIMITS.name} characters or fewer.`;
+  if (!email || !email.includes("@")) errors.email = "Enter a valid email.";
+  else if (email.length > LIMITS.email) errors.email = `Keep it to ${LIMITS.email} characters or fewer.`;
+  else if (findUserByEmail(email)) errors.email = "An account with that email already exists.";
+  if (password.length < 8) errors.password = "Use at least 8 characters.";
+  if (Object.keys(errors).length) {
+    reply
+      .code(400)
+      .type("text/html")
+      .send(signupPage({ errors, name, email, next, theme: req.guestTheme }));
+    return;
+  }
+  const user = createUser({ email, passwordHash: hashPassword(password), name });
   reply.setCookie("session", user.token, { path: "/", httpOnly: true, signed: true, sameSite: "lax" });
   reply.redirect(next || "/");
 });

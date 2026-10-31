@@ -1110,6 +1110,7 @@ export function loginPage({ error = "", email = "", field = "", next = "", theme
             </div>
             ${loadingButton("Log in", { loadingLabel: "Logging in...", className: "button-block button-lg" })}
           </form>
+          <p class="auth-foot">New to Quad? <a href="/signup${next ? `?next=${encodeURIComponent(next)}` : ""}">Create an account</a></p>
         </section>
       </div>
       <script>
@@ -1124,6 +1125,90 @@ export function loginPage({ error = "", email = "", field = "", next = "", theme
             btn.setAttribute("aria-pressed", show ? "true" : "false");
           });
           // Never submit the password field as type=text, so browsers still offer to save it.
+          if (input.form) input.form.addEventListener("submit", function () {
+            input.type = "password";
+            btn.setAttribute("aria-pressed", "false");
+          });
+        })();
+      </script>
+    `,
+  });
+}
+
+// signupPage({errors, name, email, next}): errors keyed by field ("name",
+// "email", "password"); name/email re-fill the form on a failed submit.
+export function signupPage({ errors = {}, name = "", email = "", next = "", theme = "system" } = {}) {
+  return layout({
+    title: "Create an account",
+    user: null,
+    theme,
+    bodyClass: "page-auth",
+    body: `
+      <div class="auth-wrap">
+        <section class="panel auth-card" aria-labelledby="auth-title">
+          <div class="auth-head">
+            <span class="brand-mark auth-mark" aria-hidden="true">Q</span>
+            <h1 id="auth-title">Create your Quad account</h1>
+            <p class="muted">Takes a moment. You can fill in a bio and interests later from Settings.</p>
+          </div>
+          <form class="stack" method="post" action="/signup" data-loading>
+            ${
+              errors.form
+                ? `<div class="callout callout-error" role="alert"><strong>Couldn't create your account.</strong> ${escape(
+                    errors.form,
+                  )}</div>`
+                : ""
+            }
+            ${next ? `<input type="hidden" name="next" value="${escape(next)}" />` : ""}
+            ${formField({
+              label: "Name",
+              name: "name",
+              value: name,
+              error: errors.name ?? "",
+              required: true,
+              placeholder: "Your name",
+              attrs: `autocomplete="name"${errors.name ? " autofocus" : ""}`,
+            })}
+            ${formField({
+              label: "Email",
+              name: "email",
+              type: "email",
+              value: email,
+              error: errors.email ?? "",
+              required: true,
+              placeholder: "you@example.com",
+              attrs: `autocomplete="email" inputmode="email" spellcheck="false"${errors.email ? " autofocus" : ""}`,
+            })}
+            <div class="auth-password">
+              ${formField({
+                label: "Password",
+                name: "password",
+                type: "password",
+                error: errors.password ?? "",
+                hint: "At least 8 characters.",
+                required: true,
+                attrs: `autocomplete="new-password"${errors.password ? " autofocus" : ""}`,
+              })}
+              <button type="button" class="button button-ghost button-sm auth-reveal" data-password-toggle aria-controls="f-password" aria-pressed="false" hidden>
+                <span class="auth-reveal-icon" aria-hidden="true"></span>Show password
+              </button>
+            </div>
+            ${loadingButton("Create account", { loadingLabel: "Creating...", className: "button-block button-lg" })}
+          </form>
+          <p class="auth-foot">Already have an account? <a href="/login${next ? `?next=${encodeURIComponent(next)}` : ""}">Log in</a></p>
+        </section>
+      </div>
+      <script>
+        (function () {
+          var btn = document.querySelector("[data-password-toggle]");
+          var input = document.getElementById("f-password");
+          if (!btn || !input) return;
+          btn.hidden = false;
+          btn.addEventListener("click", function () {
+            var show = input.type === "password";
+            input.type = show ? "text" : "password";
+            btn.setAttribute("aria-pressed", show ? "true" : "false");
+          });
           if (input.form) input.form.addEventListener("submit", function () {
             input.type = "password";
             btn.setAttribute("aria-pressed", "false");
