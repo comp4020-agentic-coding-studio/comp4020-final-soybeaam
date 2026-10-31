@@ -444,5 +444,65 @@
       }).catch(function () {});
     });
     if (pane && !current()) form.hidden = true;
+
+    // Poll the open thread for messages the other person sent. Each
+    // conversation tracks its own last-seen id (data-dm-last-id).
+    if (window.fetch) {
+      var dmPolling = false;
+      var dmTick = function () {
+        if (dmPolling || d.hidden) return;
+        var conv = current();
+        if (!conv) return;
+        var username = conv.getAttribute("data-with-username");
+        if (!username) return;
+        var lastId = Number(conv.getAttribute("data-dm-last-id")) || 0;
+        dmPolling = true;
+        fetch("/messages/" + encodeURIComponent(username) + "/poll?after=" + lastId, {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        })
+          .then(function (res) { return res.ok ? res.json() : []; })
+          .then(function (msgs) {
+            if (!Array.isArray(msgs) || !msgs.length) return;
+            var log = $("[data-dm-log]", conv);
+            var empty = $("[data-dm-empty]", log);
+            if (empty) empty.remove();
+            var newest = null;
+            msgs.forEach(function (m) {
+              if (m.is_mine) return;
+              newest = m;
+              log.insertAdjacentHTML(
+                "beforeend",
+                '<li class="dm-msg"><p class="dm-bubble">' + esc(m.body) + '</p><span class="dm-time">' +
+                  esc(new Date(m.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) + "</span></li>",
+              );
+            });
+            conv.setAttribute("data-dm-last-id", String(msgs[msgs.length - 1].id));
+            var onScreen = wide || dm.getAttribute("data-view") === "thread";
+            if (onScreen) {
+              log.scrollTop = log.scrollHeight;
+              markRead(conv.getAttribute("data-dm-conv"));
+            } else {
+              var link = linkFor(conv.getAttribute("data-dm-conv"));
+              if (link && readThreads.indexOf(conv.getAttribute("data-dm-conv")) !== -1) {
+                var i = readThreads.indexOf(conv.getAttribute("data-dm-conv"));
+                readThreads.splice(i, 1);
+                save(dmRead, readThreads);
+              }
+              if (link && !$("[data-dm-unread]", link)) {
+                link.insertAdjacentHTML("beforeend", '<span class="dm-unread" data-dm-unread><span class="visually-hidden">Unread</span></span>');
+              }
+            }
+            if (newest) {
+              var last = $("[data-dm-last]", linkFor(conv.getAttribute("data-dm-conv")));
+              if (last) last.textContent = newest.body;
+            }
+          })
+          .catch(function () {})
+          .then(function () { dmPolling = false; });
+      };
+      setInterval(dmTick, 4000);
+      d.addEventListener("visibilitychange", function () { if (!d.hidden) dmTick(); });
+    }
   }
 })();

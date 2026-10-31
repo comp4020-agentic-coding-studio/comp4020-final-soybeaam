@@ -15,6 +15,8 @@ import {
   myEvents,
   dmThreadsFor,
   postDm,
+  dmSince,
+  chatSince,
   notificationsFor,
   ticketsFor,
   allAnnouncements,
@@ -233,6 +235,16 @@ export default async function socialRoutes(app) {
     reply.redirect(back);
   });
 
+  // Polled by the open Messages thread for new DMs from the other person.
+  // ?after=<id> (0 for none yet). JSON: [{id, body, at, is_mine, from}].
+  app.get("/messages/:username/poll", async (req, reply) => {
+    if (!req.user) return reply.code(401).send({ error: "Log in first." });
+    const row = findUserByUsername(req.params.username);
+    if (!row || row.token === req.user.token) return reply.code(404).send({ error: "No such conversation." });
+    const after = Number(req.query?.after) || 0;
+    reply.send(dmSince(req.user.token, row.token, publicUser(row), after));
+  });
+
   app.get("/notifications", async (req, reply) => {
     if (!requireLogin(req, reply, "/notifications")) return;
     html(reply, 200, notificationsPage({ user: req.user, theme: req.guestTheme, notifications: notificationsFor(req.user) }));
@@ -307,6 +319,20 @@ export default async function socialRoutes(app) {
     const c = community(req.params.slug);
     if (!c) return fail(req, reply, 404, COMMUNITY_NOT_FOUND, "/communities");
     chatHandler(`community:${c.slug}`, `/communities/${c.slug}`, req, reply);
+  });
+
+  // Polled by an open chat room for messages posted by other people.
+  // ?after=<id> (0 for none yet). JSON: chatFor()-shaped messages, newest last.
+  app.get("/events/:slug/chat/poll", async (req, reply) => {
+    const event = getEvent(req.params.slug);
+    if (!event) return reply.code(404).send({ error: EVENT_NOT_FOUND });
+    reply.send(chatSince(`event:${event.slug}`, req.query?.after, req.user?.token ?? null));
+  });
+
+  app.get("/communities/:slug/chat/poll", async (req, reply) => {
+    const c = community(req.params.slug);
+    if (!c) return reply.code(404).send({ error: COMMUNITY_NOT_FOUND });
+    reply.send(chatSince(`community:${c.slug}`, req.query?.after, req.user?.token ?? null));
   });
 
   // Title 1..TITLE_MAX, body 0..BODY_MAX, pinned "1"/"on" for pinned.
