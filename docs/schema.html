@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quad schema</title>
+<style>
+  :root {
+    --fg: #1b1b1f;
+    --bg: #ffffff;
+    --muted: #6b6b76;
+    --line: #c9c9d2;
+    --accent: #7c5cff;
+    --card: #f5f5fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fg: #e8e8ee;
+      --bg: #121214;
+      --muted: #9b9ba6;
+      --line: #3a3a42;
+      --accent: #b3a1ff;
+      --card: #1c1c20;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fg: #e8e8ee;
+    --bg: #121214;
+    --muted: #9b9ba6;
+    --line: #3a3a42;
+    --accent: #b3a1ff;
+    --card: #1c1c20;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 16px;
+  }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; margin-bottom: 4px; }
+  p.sub { color: var(--muted); margin-top: 0; font-size: 0.9rem; }
+  figure { margin: 24px 0; }
+  figcaption { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+  svg { max-width: 100%; height: auto; display: block; }
+  .table-title { font-weight: 600; }
+  .table-col { font-size: 11.5px; }
+  .pk { font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Quad data model</h1>
+  <p class="sub">SQLite schema as created in src/db.js and retrofitted in src/social-db.js. Columns added later by ALTER TABLE are folded into each table box, not shown as a separate migration step.</p>
+
+  <figure>
+    <svg viewBox="0 0 1080 760" role="img" aria-label="Entity relationship diagram of the Quad database: users, events, checkins, event_maybes, chat_messages, dm_messages, and announcements, linked by foreign keys on user token and event slug.">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+        </marker>
+      </defs>
+
+      <!-- users -->
+      <g transform="translate(40,40)">
+        <rect width="260" height="190" rx="8" fill="var(--card)" stroke="var(--line)" />
+        <text x="130" y="22" text-anchor="middle" class="table-title">users</text>
+        <line x1="0" y1="34" x2="260" y2="34" stroke="var(--line)" />
+        <text x="14" y="52" class="table-col pk">token (PK)</text>
+        <text x="14" y="70" class="table-col">email (unique)</text>
+        <text x="14" y="88" class="table-col">username (unique)</text>
+        <text x="14" y="106" class="table-col">password_hash, name</text>
+        <text x="14" y="124" class="table-col">avatar_url, bio, location</text>
+        <text x="14" y="142" class="table-col">interests (JSON)</text>
+        <text x="14" y="160" class="table-col">role, theme, language</text>
+        <text x="14" y="178" class="table-col">timezone, is_demo</text>
+      </g>
+
+      <!-- events -->
+      <g transform="translate(420,40)">
+        <rect width="300" height="300" rx="8" fill="var(--card)" stroke="var(--line)" />
+        <text x="150" y="22" text-anchor="middle" class="table-title">events</text>
+        <line x1="0" y1="34" x2="300" y2="34" stroke="var(--line)" />
+        <text x="14" y="52" class="table-col pk">slug (PK)</text>
+        <text x="14" y="70" class="table-col">title, event_date, location</text>
+        <text x="14" y="88" class="table-col">category, price_cents</text>
+        <text x="14" y="106" class="table-col">created_by (FK → users.token)</text>
+        <text x="14" y="124" class="table-col">start_time, end_time, distance_km</text>
+        <text x="14" y="142" class="table-col">capacity, description, tags</text>
+        <text x="14" y="160" class="table-col">rating, status, cover_hue</text>
+        <text x="14" y="178" class="table-col">interested_count, base_attendees</text>
+        <text x="14" y="196" class="table-col">friends_going, community</text>
+        <text x="14" y="214" class="table-col">details (JSON: schedule/lineup/faqs)</text>
+        <text x="14" y="232" class="table-col">lat, lng, seed_offset</text>
+        <text x="14" y="250" class="table-col">is_demo</text>
+      </g>
+
+      <!-- checkins -->
+      <g transform="translate(820,40)">
+        <rect width="220" height="120" rx="8" fill="var(--card)" stroke="var(--line)" />
+        <text x="110" y="22" text-anchor="middle" class="table-title">checkins</text>
+        <line x1="0" y1="34" x2="220" y2="34" stroke="var(--line)" />
+        <text x="14" y="52" class="table-col pk">id (PK)</text>
+        <text x="14" y="70" class="table-col">event_slug (FK)</text>
+        <text x="14" y="88" class="table-col">user_token (FK)</text>
+        <text x="14" y="106" class="table-col">unique(event_slug, user_token)</text>
+      </g>
+
+      <!-- event_maybes -->
+      <g transform="translate(820,190)">
+        <rect width="220" height="110" rx="8" fill="var(--card)" stroke="var(--line)" />
+        <text x="110" y="22" text-anchor="middle" class="table-title">event_maybes</text>
+        <line x1="0" y1="34" x2="220" y2="34" stroke="var(--line)" />
+        <text x="14" y="52" class="table-col pk">event_slug, user_token (PK)</text>
+        <text x="14" y="70" class="table-col">created_at</text>
+      </g>
+
+      <!-- chat_messages -->
+      <g transform="translate(40,300)">
+        <rect width="280" height="160" rx="8" fill="var(--card)" stroke="var(--line)" />
+        <text x="140" y="22" text-anchor="middle" class="table-title">chat_messages</text>
+        <line x1="0" y1="34" x2="280" y2="34" stroke="var(--line)" />
+        <text x="14" y="52" class="table-col pk">id (PK)</text>
+        <text x="14" y="70" class="table-col">room (text: "event:slug" or</text>
+        <text x="14" y="88" class="table-col">  "community:slug", no FK)</text>
+        <text x="14" y="106" class="table-col">user_token (FK → users.token)</text>
+        <text x="14" y="124" class="table-col">kind, body, meta (JSON)</text>
+        <text x="14" y="142" class="table-col">reply_to (self FK, nullable)</text>
+      </g>
+
+      <!-- dm_messages -->
+      <g transform="translate(40,500)">
+        <rect width="280" height="140" rx="8" fill="var(--card)" stroke="var(--line)" />
+        <text x="140" y="22" text-anchor="middle" class="table-title">dm_messages</text>
+        <line x1="0" y1="34" x2="280" y2="34" stroke="var(--line)" />
+        <text x="14" y="52" class="table-col pk">id (PK)</text>
+        <text x="14" y="70" class="table-col">thread_id (sorted "tokA:tokB")</text>
+        <text x="14" y="88" class="table-col">from_token (FK), to_token (FK)</text>
+        <text x="14" y="106" class="table-col">body, created_at</text>
+      </g>
+
+      <!-- announcements -->
+      <g transform="translate(420,400)">
+        <rect width="300" height="150" rx="8" fill="var(--card)" stroke="var(--line)" />
+        <text x="150" y="22" text-anchor="middle" class="table-title">announcements</text>
+        <line x1="0" y1="34" x2="300" y2="34" stroke="var(--line)" />
+        <text x="14" y="52" class="table-col pk">id (PK)</text>
+        <text x="14" y="70" class="table-col">event_slug (FK, nullable = global)</text>
+        <text x="14" y="88" class="table-col">user_token (FK → users.token)</text>
+        <text x="14" y="106" class="table-col">title, body, pinned</text>
+      </g>
+
+      <!-- arrows -->
+      <!-- users -> events (created_by) -->
+      <line x1="300" y1="100" x2="420" y2="100" stroke="currentColor" marker-end="url(#arrow)" />
+      <text x="360" y="92" text-anchor="middle" class="table-col">hosts</text>
+
+      <!-- events -> checkins -->
+      <line x1="720" y1="80" x2="820" y2="80" stroke="currentColor" marker-end="url(#arrow)" />
+      <text x="770" y="72" text-anchor="middle" class="table-col">attended by</text>
+
+      <!-- events -> event_maybes -->
+      <line x1="720" y1="230" x2="820" y2="230" stroke="currentColor" marker-end="url(#arrow)" />
+      <text x="770" y="222" text-anchor="middle" class="table-col">maybe'd by</text>
+
+      <!-- users -> checkins (curve down and across) -->
+      <path d="M170,230 C170,350 700,420 820,90" fill="none" stroke="currentColor" stroke-dasharray="3 4" marker-end="url(#arrow)" />
+      <text x="470" y="400" text-anchor="middle" class="table-col">user_token</text>
+
+      <!-- users -> chat_messages -->
+      <line x1="170" y1="230" x2="170" y2="300" stroke="currentColor" marker-end="url(#arrow)" />
+      <text x="195" y="270" class="table-col">posts</text>
+
+      <!-- users -> dm_messages -->
+      <path d="M100,230 C60,320 60,420 100,500" fill="none" stroke="currentColor" marker-end="url(#arrow)" />
+      <text x="30" y="380" class="table-col">sends</text>
+
+      <!-- events -> announcements -->
+      <line x1="570" y1="340" x2="570" y2="400" stroke="currentColor" marker-end="url(#arrow)" />
+      <text x="595" y="372" class="table-col">about</text>
+
+      <!-- users -> announcements -->
+      <path d="M300,180 C350,260 400,330 420,460" fill="none" stroke="currentColor" marker-end="url(#arrow)" />
+      <text x="330" y="300" class="table-col">authors</text>
+
+      <!-- chat_messages self reply -->
+      <path d="M320,370 C350,370 350,340 320,340" fill="none" stroke="currentColor" marker-end="url(#arrow)" />
+      <text x="358" y="358" class="table-col">reply_to</text>
+    </svg>
+    <figcaption>Seven tables. users is the hub: every other table references users.token. events is the other hub, carrying most of the event-feature columns added later via ALTER TABLE. chat_messages and announcements both attach to events only loosely — chat's "room" is a plain string (no FK, since communities aren't a table), and announcements.event_slug is nullable for global posts.</figcaption>
+  </figure>
+</main>
+</body>
+</html>

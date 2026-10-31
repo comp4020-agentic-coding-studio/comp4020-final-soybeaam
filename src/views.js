@@ -445,7 +445,7 @@ function sidebarUser(user, active) {
 // paint. classList.add, not className, so the later no-js -> js swap still works.
 const THEME_HEAD_SCRIPT = `(function(){try{
     var d=document.documentElement;
-    var a=localStorage.getItem("quad-accent");
+    var a=JSON.parse(localStorage.getItem("quad-accent"));
     if(a&&a!=="purple")d.setAttribute("data-accent",a);
     if(localStorage.getItem("quad:sidebar-collapsed")==="true")d.classList.add("sb-collapsed");
   }catch(e){}})();`;
@@ -478,6 +478,7 @@ function siteFooter(user) {
         <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span>Quad</a>
         <p class="footer-note">Events from any campus, club or community. Anyone can host, anyone can check in.</p>
         <p class="footer-note footer-credit">Images sourced from <a href="https://www.pexels.com">Pexels</a>.</p>
+        <p class="footer-note footer-credit">Backgrounds generated with <a href="https://neat.rebase.pro/">Neat</a>.</p>
       </div>
       <nav class="footer-cols" aria-label="Footer">
         <div class="footer-col">
@@ -524,7 +525,7 @@ function personModal() {
 
 // Extra page scripts. Only these fixed paths can be added, so a view can't
 // load anything else by mistake.
-const PAGE_SCRIPTS = new Set(["/pages.js", "/maps.js"]);
+const PAGE_SCRIPTS = new Set(["/pages.js", "/maps.js", "/hero-gradient.js"]);
 
 // MapLibre GL JS from a pinned CDN copy (no npm dependency). Only pages that
 // ask for /maps.js get it. If it fails to load, the drawn maps stay.
@@ -537,8 +538,13 @@ const MAPLIBRE = {
 
 function pageScript(src) {
   const tag = `\n    <script src="${src}" defer></script>`;
-  if (src !== "/maps.js") return tag;
-  return `\n    <script src="${MAPLIBRE.js}" integrity="${MAPLIBRE.jsHash}" crossorigin="anonymous" defer></script>${tag}`;
+  if (src === "/maps.js") {
+    return `\n    <script src="${MAPLIBRE.js}" integrity="${MAPLIBRE.jsHash}" crossorigin="anonymous" defer></script>${tag}`;
+  }
+  if (src === "/hero-gradient.js") {
+    return `\n    <script type="module" src="${src}" defer></script>`;
+  }
+  return tag;
 }
 
 // Marks seeded dummy data (users and events flagged is_demo in db.js). Text,
@@ -844,11 +850,6 @@ function homeCarousel(featured, heading) {
       // with no visible jump (the duplicate is sitting right where it needs
       // to be already).
       var originals = slides.slice();
-      originals.forEach(function (s) {
-        var clone = s.cloneNode(true);
-        clone.setAttribute("aria-hidden", "true");
-        track.appendChild(clone);
-      });
 
       var pos = 0; // px, moves negative as the strip scrolls left
       var setWidth = 0;
@@ -864,6 +865,15 @@ function homeCarousel(featured, heading) {
         var gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap || "0") || 0;
         setWidth += gap * originals.length;
       }
+
+      // Measured before cloning: reading layout right after the appendChild
+      // writes below would force a synchronous reflow for every slide.
+      measure();
+      originals.forEach(function (s) {
+        var clone = s.cloneNode(true);
+        clone.setAttribute("aria-hidden", "true");
+        track.appendChild(clone);
+      });
 
       function apply() {
         // Keep pos within one set's width behind zero so it never drifts
@@ -936,7 +946,6 @@ function homeCarousel(featured, heading) {
       root.addEventListener("focusout", function () { paused = false; });
 
       window.addEventListener("resize", measure);
-      measure();
       apply();
       rafId = window.requestAnimationFrame(frame);
     })();
@@ -962,6 +971,7 @@ export function homePage({
   const flashMsg = flashToast(HOME_FLASH, flash);
 
   const hero = `<section class="home-hero" aria-labelledby="home-hero-title">
+    <canvas class="home-hero-bg" data-neat-gradient aria-hidden="true"></canvas>
     <div class="home-hero-text">
       <p class="eyebrow">${user ? `Welcome back, ${escape(displayName(user))}` : "Events on campus and around it"}</p>
       <h1 id="home-hero-title">Find something on this week and check in when you get there.</h1>
@@ -1005,6 +1015,7 @@ export function homePage({
     user,
     theme,
     active: "events",
+    scripts: ["/hero-gradient.js"],
     body: `
       ${
         flashMsg

@@ -174,6 +174,14 @@ const SEED_PASSWORD = "password123";
       fill.run(hash, u.name, u.username, u.username, u.bio, u.location, interests, u.role, row.token);
     }
   }
+  // The loop above only sets `role` the first time a row is seeded, so a row
+  // created before DEV_ADMIN_ENABLED existed (or seeded while it was true)
+  // would otherwise keep `role = 'admin'` forever with the public seed
+  // password. Force it down every boot wherever dev admin isn't allowed,
+  // independent of whether the row was "already seeded".
+  if (!DEV_ADMIN_ENABLED) {
+    db.prepare("UPDATE users SET role = 'user' WHERE email = ? AND role = 'admin'").run("admin@quad.test");
+  }
 }
 
 function slugify(title) {

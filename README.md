@@ -14,6 +14,14 @@ On Quad, you can:
   you come back. Passwords are hashed with `node:crypto`'s scrypt
   (`src/auth.js`), not stored in plain text.
 - Navigate via a sidebar: Home, Discover, My Events, Saved, Event Map,
+- The seeded demo accounts (`alex@quad.test`, `sam@quad.test`,
+  `maya@quad.test`, `tom@quad.test`, plus `admin@quad.test` locally) all
+  use the password `password123` on purpose, so anyone reviewing or
+  crit-testing the app can log in as a demo user without credentials
+  being handed out separately. They're seeded fake people with no real
+  data behind them, not an account you'd ever want for something real —
+  don't reuse this pattern for actual user accounts.
+- A sidebar app: Home, Discover, My Events, Saved, Event Map,
   Communities, Messages, Notifications, Tickets, Announcements,
   Activity and Settings.
 - Create a profile and make edits in settings (theme, accent colour)
