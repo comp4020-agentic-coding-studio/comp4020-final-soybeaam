@@ -20,7 +20,7 @@ import {
 import { renderMarkdown } from "./markdown.js";
 import { verifyPassword } from "./auth.js";
 import { homePage, loginPage, newEventPage, payPage, readmePage, notFoundPage } from "./views.js";
-import { eventPage } from "./event-views.js";
+import { eventPage, capacityBlock, attendeesBody, announcementsBody } from "./event-views.js";
 import { geocode, distanceFromCbdKm } from "./geocode.js";
 import { ALL_EVENT_IMAGES } from "./event-images.js";
 import {
@@ -212,6 +212,26 @@ app.get("/events/:slug", async (req, reply) => {
       related: relatedEvents(event),
     }),
   );
+});
+
+// Polled by an open event page for things that change when someone else
+// checks in, sets maybe, or posts an announcement: the capacity bar, the
+// attendee tabs and the announcement list. Rendered server-side with the
+// same pieces as the full page, so a live update looks identical to a
+// reload. ?known_ann=<highest announcement id already on the page>.
+app.get("/events/:slug/live", async (req, reply) => {
+  const event = getEventFull(req.params.slug);
+  if (!event) return reply.code(404).send({ error: EVENT_NOT_FOUND });
+  const people = eventAttendees(event.slug);
+  const annList = announcementsFor(event.slug);
+  const knownAnn = Number(req.query?.known_ann) || 0;
+  const newestAnn = annList.length ? Math.max(...annList.map((a) => Number(a.id))) : 0;
+  reply.send({
+    capacity: capacityBlock(event),
+    attendees: attendeesBody(event, people),
+    announcements: newestAnn > knownAnn ? announcementsBody(annList, canManageEvent(req.user, event)) : null,
+    last_ann: newestAnn,
+  });
 });
 
 app.get("/events/:slug/pay", async (req, reply) => {

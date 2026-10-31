@@ -178,6 +178,24 @@ function heroActions({ user, event, checkedIn, maybe, chatCount }) {
   <p class="ev-share-status" data-share-status role="status" aria-live="polite"></p>`;
 }
 
+// The "N going" line + progress bar, polled live via data-ev-capacity so a
+// check-in from another tab updates it without a reload.
+export function capacityBlock(event) {
+  const count = Number(event.attendee_count ?? 0);
+  const cap = Number(event.capacity) || 0;
+  const pct = cap ? Math.min(100, Math.round((count / cap) * 100)) : 0;
+  return `<div class="ev-capacity" data-ev-capacity>
+    <p class="ev-capacity-row"><strong>${escape(plural(count, "person", "people"))} going</strong>${
+      cap
+        ? `<span>${
+            event.spots_left > 0 ? `${escape(plural(event.spots_left, "spot"))} left of ${cap}` : `All ${cap} spots taken`
+          }</span>`
+        : ""
+    }</p>
+    ${cap ? `<div class="ev-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>` : ""}
+  </div>`;
+}
+
 function hero({ user, event, people, checkedIn, maybe, chatCount }) {
   const status = STATUS[event.status];
   const top = [
@@ -203,19 +221,7 @@ function hero({ user, event, people, checkedIn, maybe, chatCount }) {
   const price = event.price_cents ?? 0;
   const priceText = price > 0 ? `${priceLabel(price)} per ticket` : "Free entry";
 
-  const count = Number(event.attendee_count ?? 0);
-  const cap = Number(event.capacity) || 0;
-  const pct = cap ? Math.min(100, Math.round((count / cap) * 100)) : 0;
-  const capacity = `<div class="ev-capacity">
-    <p class="ev-capacity-row"><strong>${escape(plural(count, "person", "people"))} going</strong>${
-      cap
-        ? `<span>${
-            event.spots_left > 0 ? `${escape(plural(event.spots_left, "spot"))} left of ${cap}` : `All ${cap} spots taken`
-          }</span>`
-        : ""
-    }</p>
-    ${cap ? `<div class="ev-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>` : ""}
-  </div>`;
+  const capacity = capacityBlock(event);
 
   const crowd = [...people.going, ...people.maybe].slice(0, 5);
   const friendsN = Number(event.friends_going) || 0;
@@ -379,7 +385,7 @@ function location(event) {
   );
 }
 
-function announcementItem(a, canManage) {
+export function announcementItem(a, canManage) {
   return `<li class="ann${a.pinned ? " is-pinned" : ""}" data-ann="${a.id}">
     <div class="ann-head">
       <span class="pill pill-accent" data-pin-badge${a.pinned ? "" : " hidden"}>Pinned</span>
@@ -403,6 +409,13 @@ function announcementItem(a, canManage) {
   </li>`;
 }
 
+// Just the list, no form: the /events/:slug/live poll re-renders this piece.
+export function announcementsBody(list, canManage) {
+  return list.length
+    ? `<ul class="ann-list">${list.map((a) => announcementItem(a, canManage)).join("")}</ul>`
+    : `<p class="meta">No announcements yet.</p>`;
+}
+
 function announcements(event, list, canManage) {
   if (!list.length && !canManage) return "";
   const form = canManage
@@ -421,7 +434,7 @@ function announcements(event, list, canManage) {
   return section(
     "announcements",
     `Announcements${list.length ? ` (${list.length})` : ""}`,
-    `${list.length ? `<ul class="ann-list">${list.map((a) => announcementItem(a, canManage)).join("")}</ul>` : `<p class="meta">No announcements yet.</p>`}
+    `<div data-ev-announcements>${announcementsBody(list, canManage)}</div>
     ${form}`,
     { className: "ev-anchor" },
   );
@@ -442,24 +455,29 @@ function personCard(p) {
 }
 
 function attendeesSection(event, people) {
-  const list = (arr, empty) =>
-    arr.length ? `<ul class="person-grid">${arr.map(personCard).join("")}</ul>` : `<p class="meta">${empty}</p>`;
   const onQuad = people.going.length + people.maybe.length;
   return section(
     "attendees",
     "Attendees",
-    `<p class="meta small ev-section-sub">${escape(plural(Number(event.attendee_count ?? 0), "person", "people"))} going in total. ${
-      onQuad ? `${escape(plural(onQuad, "person", "people"))} from Quad shown here.` : ""
-    }</p>
-    ${tabs(
-      [
-        { id: "att-going", label: `Going (${people.going.length})`, content: list(people.going, "Nobody from Quad has said they're going yet.") },
-        { id: "att-maybe", label: `Maybe (${people.maybe.length})`, content: list(people.maybe, "No maybes yet.") },
-      ],
-      { label: "Attendees" },
-    )}`,
+    `<div data-ev-attendees>${attendeesBody(event, people, onQuad)}</div>`,
     { className: "ev-anchor" },
   );
+}
+
+// Factored out so the /events/:slug/live poll can re-render just this part.
+export function attendeesBody(event, people, onQuad = people.going.length + people.maybe.length) {
+  const list = (arr, empty) =>
+    arr.length ? `<ul class="person-grid">${arr.map(personCard).join("")}</ul>` : `<p class="meta">${empty}</p>`;
+  return `<p class="meta small ev-section-sub">${escape(plural(Number(event.attendee_count ?? 0), "person", "people"))} going in total. ${
+    onQuad ? `${escape(plural(onQuad, "person", "people"))} from Quad shown here.` : ""
+  }</p>
+  ${tabs(
+    [
+      { id: "att-going", label: `Going (${people.going.length})`, content: list(people.going, "Nobody from Quad has said they're going yet.") },
+      { id: "att-maybe", label: `Maybe (${people.maybe.length})`, content: list(people.maybe, "No maybes yet.") },
+    ],
+    { label: "Attendees" },
+  )}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -728,6 +746,9 @@ export function eventPage({
     bodyClass: "page-event",
     scripts: hasCoords(event) ? ["/maps.js"] : [],
     body: `
+      <div data-ev-live="/events/${escape(event.slug)}/live" data-ev-last-ann="${
+        annList.length ? Math.max(...annList.map((a) => Number(a.id))) : 0
+      }" hidden></div>
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Events</a><span aria-hidden="true">/</span><span>${escape(
         event.title,
       )}</span></nav>

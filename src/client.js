@@ -384,6 +384,38 @@
     d.addEventListener("visibilitychange", function () { if (!d.hidden) tick(); });
   }
 
+  /* ---- Event page: poll for check-ins, maybes and announcements from other people ---- */
+
+  var evLive = $("[data-ev-live]");
+  if (evLive && window.fetch) {
+    var evUrl = evLive.getAttribute("data-ev-live");
+    var lastAnn = Number(evLive.getAttribute("data-ev-last-ann")) || 0;
+    var evPolling = false;
+    var evTick = function () {
+      if (evPolling || d.hidden) return;
+      evPolling = true;
+      fetch(evUrl + "/live?known_ann=" + lastAnn, { credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          if (!data) return;
+          var cap = $$("[data-ev-capacity]");
+          cap.forEach(function (el) { el.outerHTML = data.capacity; });
+          var att = $("[data-ev-attendees]");
+          if (att) att.innerHTML = data.attendees;
+          if (data.announcements != null) {
+            var ann = $("[data-ev-announcements]");
+            if (ann) ann.innerHTML = data.announcements;
+            lastAnn = data.last_ann;
+            evLive.setAttribute("data-ev-last-ann", String(lastAnn));
+          }
+        })
+        .catch(function () {})
+        .then(function () { evPolling = false; });
+    };
+    setInterval(evTick, 4000);
+    d.addEventListener("visibilitychange", function () { if (!d.hidden) evTick(); });
+  }
+
   /* ---- Forms enhanced with fetch: maybe toggle, pin toggle ---- */
 
   d.addEventListener("submit", function (e) {
