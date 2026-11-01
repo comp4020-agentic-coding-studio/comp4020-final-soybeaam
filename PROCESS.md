@@ -12,12 +12,23 @@ The app uses a signed, httpOnly cookie named session that stores the user's toke
 
 ## Several people at once
 
-## Importing events
+Before any code, a schema was created to lay out the groundowrk which was later later on created as [schema.html](docs\schema.html) to ensure consistent, non-redundant DB handling, especially when several people can interact and see updates (new events or messages) fom other users. The app tells people apart by assigning a token. 
 
-A bit issue I ran into was a legal one. 
+The website is build on client.js and uses small fetch() methods to retrieve updated data. For this site, polling is the best option because it is not the type of site where latency is imperative and would need a server that holds up long-lived connections like websockets. Due to the $0 costing model chosen for this assignment (256MB memory budget) a server-sent events (SSE) connection costs a keep-alive socket.  
+
+## Persistence
+
+Events, RSVPs/maybes, event chat, community chat, DMs, and announcements (with pin state) are all durable — created by one person, visible to anyone, surviving restarts and redeploys
+
 
 ## Corrections that landed
 - The CLAUDE.md file is a source of grounding which references HANDBOOK.md. Unfortunately, there were times when claude did not follow these instructions, as some session conversations were missed.
+- The light/dark theme begun vertically stacked and I had to prompt the agent twice to resolve this. 
+- Persistence. Every new feature that intuitively required persistence was created to exist statically. Such as the theme colours, which had to be corrected.
+- At the beginning of the project, I laid ground rules in CLAUDE.md which the agent overwrote. 
+- There were a few vulnerability issues that I caught early and late on in the project which required the creation of more tests and fixes. 
+- Real-time events were something that had to be corrected, as they persisted but changes only rendered when reloaded. 
+ 
 ## How I directed, grounded and corrected the work. 
 - The CLAUDE.md file is a source of grounding which references HANDBOOK.md, which lays out the groundrules for the AI.
 
