@@ -58,7 +58,7 @@ nobody's looking, and reuses the `fetch()`-and-JSON pattern already used for
 check-ins and chat. The cost is up to ~4 seconds of staleness, acceptable
 for chat, DMs and attendance; nothing here is more latency-sensitive.
 
-## Several people at once
+## Multi-user, real-time persistence
 
 Before any code, a schema was created to lay out the groundowrk which was later later on created as [schema.html](docs\schema.html) to ensure consistent, non-redundant DB handling, especially when several people can interact and see updates (new events or messages) fom other users. The app tells people apart by assigning a token. 
 
@@ -81,8 +81,7 @@ agent-facing rules; `docs/conversation_*.md` keeps a timestamped record per
 session of what was asked and delivered. Work went one feature or fix per
 prompt, verified locally then on the deployed app before moving on.
 
-Several corrections were real bugs caught by treating "it compiles" as
-necessary, not sufficient:
+Tests were done with the help of auditing agents and logged in [tests](docs\tests).
 
 - **CLAUDE.md drift.** Sessions sometimes skipped HANDBOOK.md's rules when
   not re-grounded, and one session partially overwrote earlier ground rules which resulted in a manual correction.
