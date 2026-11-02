@@ -57,6 +57,7 @@ ordinary GET, indistinguishable from a page load — so it costs nothing when
 nobody's looking, and reuses the `fetch()`-and-JSON pattern already used for
 check-ins and chat. The cost is up to ~4 seconds of staleness, acceptable
 for chat, DMs and attendance; nothing here is more latency-sensitive.
+Implemented across [`404b547`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/404b547) (polling added for messages, event chat and community chat), [`cc22d1f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cc22d1f) (polling extended to Discover and the event page), and [`d586429`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d586429) (polling interval dropped to 1s to meet the brief's real-time bar).
 
 ## Several people at once
 
@@ -118,7 +119,7 @@ necessary, not sufficient:
   pre-paint `<head>` script read it back with a plain `getItem`, so other
   pages got a literal `data-accent` matching no CSS rule — fixed by parsing
   it consistently.
-- **Real-time persisted but wasn't live.** Chat, DMs, then Discover and the event page all "persisted", however not as intended because persistance didn't appear live as oer the breifs requirements. Fixed over two rounds logged in [conversation](docs\conversation_2026-10-31-polling-and-signup.md). Live updates were then tested by the agent and user in the browser.
+- **Real-time persisted but wasn't live.** Chat, DMs, then Discover and the event page all "persisted", however not as intended because persistance didn't appear live as oer the breifs requirements. Fixed over two rounds logged in [conversation](docs\conversation_2026-10-31-polling-and-signup.md): [`404b547`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/404b547) added polling for messages, event chat and community chat, then [`cc22d1f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cc22d1f) extended it to Discover and the event page, and [`d586429`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d586429) dropped the interval to 1s to meet the brief's real-time bar. Live updates were then tested by the agent and user in the browser.
 
 Every change on `main` goes through `pnpm check` (typecheck plus the full
 `spec/` suite) and a real request against live Fly before being called done. Auditing was done towards the end of the project to double check the website worked as intended and showed what "good" is.
