@@ -2,6 +2,20 @@
 
 ## The build
 
+The brief fixes three requirements — multi-user, real-time, persistent — and
+leaves "good" open. I started from the course's Fastify + `node:sqlite`
+template: its hard constraints (one `shared-cpu-1x` machine, 256MB memory,
+one volume at `/data`, HTTP on `0.0.0.0:$PORT`) were already satisfied, so
+the workflow only had to add features, not also solve deployment and
+persistence. The app became Quad, a campus social/events platform: discover
+events, check in, chat, DM other users, post and pin announcements, and see
+all of it update live for everyone on the same page.
+
+"Good" was defined iteratively: each crit added a feature, then a pass
+asking whether it was actually finished — does it persist, is it visible to
+other users, does it fail safely — which usually surfaced a gap. Gaps became
+a spec test or a harness correction, not a quiet patch.
+
 The brief fixes three requirements: multi-user, real-time, persistent — and
 leaves "good" open to interpretation which is expanded on in [README.md](README.md) section. I started from the course's Fastify + `node:sqlite` template: its hard constraints (one `shared-cpu-1x` machine, 256MB memory, one volume at `/data`, HTTP on `0.0.0.0:$PORT`) were already satisfied, so the workflow only had to add features, not also solve deployment and persistence. The app, named Quad, a campus social/events platform has multiple features to satisfy the three requirements. 
 
@@ -50,12 +64,18 @@ Before any code, a schema was created to lay out the groundowrk which was later 
 
 The website is build on client.js and uses small fetch() methods to retrieve updated data. Persistence was done with polling, as I had wrongfully assumed there was already infrastructure for real-time updates by the time I was testing. Instead, persistence was interpreted differently from the AI evident from the process. For this site, polling was weighed to be the best option because the site isn't latency dependent enough for websockets. Additionally, the $0 costing model chosen for this assignment (256MB memory budget) would mean a server-sent events (SSE) connection might incur keep-alive socket costs which is out of scope for this project. 
 
+Before writing the event/social schema, I sketched the entity relationships
+on paper, to keep DB handling consistent once several people could interact
+and see each other's updates; that sketch later became `docs/schema.html` as
+a lasting reference. People are told apart by a `users.token`
+(`crypto.randomUUID()`), never exposed to the browser except inside the
+signed cookie. `publicUser()` in `src/social-db.js:181` is the only user
+shape allowed to leave the data layer — stripping token, password hash,
+email, role and preferences down to username, display name, avatar, bio,
+location and interests — so every view gets the same safe shape by
+construction, not convention.
+
 ## Building it
-
-Saved events, follows, read notifications, reactions and poll votes
-are the exception, are kept in `localStorage`.
-
-`client.js`/`pages.js` poll JSON endpoints to pick up what other users do in the app.
 
 ## Directing, grounding and correcting the agent
 
@@ -108,6 +128,9 @@ Every change on `main` goes through `pnpm check` (typecheck plus the full
 
 ## What I'd still change
 
-Id have more security features and have some tokens from event scrapers to add into the site. I'd include more messaging features such as group chats.
-
----
+`/client.js` and `/pages.js` are cached for an hour with no cache-busting, so
+a deploy can leave an open tab running stale JS until a hard reload — I'd add
+a content hash or version string. I'd also replace the cookie-only identity
+model (no email verification) with something stronger, now that host-only
+powers like pinning and announcements exist and are worth protecting
+properly.

@@ -35,9 +35,10 @@ function threadItem(t, activeId) {
 
 function conversation(t, activeId) {
   const w = t.with;
+  const lastId = [...t.messages].reverse().find((m) => typeof m.id === "number")?.id ?? 0;
   return `<div class="dm-conv" data-dm-conv="${escape(t.id)}" data-with-username="${escape(t.with_username ?? w.username ?? "")}" data-with-name="${escape(
     w.display_name,
-  )}"${t.id === activeId ? "" : " hidden"}>
+  )}" data-dm-last-id="${lastId}"${t.id === activeId ? "" : " hidden"}>
       <header class="dm-head">
         <a class="icon-button dm-back" href="/messages" data-dm-back aria-label="All conversations">${icon("back")}</a>
         ${personLink(

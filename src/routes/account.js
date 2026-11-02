@@ -14,7 +14,7 @@ import {
   LIMITS,
   THEMES,
 } from "../db.js";
-import { hashPassword, verifyPassword } from "../auth.js";
+import { hashPassword, verifyPassword, sessionCookieOptions } from "../auth.js";
 import { notFoundPage } from "../views.js";
 import { profilePage, settingsPage, LANGUAGES, TIMEZONES } from "../account-views.js";
 import { html, field, backTo, wantsJson } from "./util.js";
@@ -185,7 +185,7 @@ export default async function accountRoutes(app) {
     // A new password ends every other session: rotating the token breaks the
     // old cookies, and this device gets a cookie for the new token.
     const token = rotateToken(req.user.token);
-    if (token) reply.setCookie("session", token, { path: "/", httpOnly: true, signed: true, sameSite: "lax" });
+    if (token) reply.setCookie("session", token, sessionCookieOptions());
     reply.redirect("/settings?flash=password#security");
   });
 

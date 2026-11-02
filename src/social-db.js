@@ -406,6 +406,27 @@ export function chatFor(room, viewerToken = null, limit = 200) {
   return rows.map((r) => messageOut(r, users, byId, viewerToken, hostToken));
 }
 
+// New messages in a room after a given id, oldest first. Used by the chat
+// polling endpoints so an open page can pick up what other people post
+// without a reload.
+export function chatSince(room, afterId, viewerToken = null) {
+  const after = Number(afterId) || 0;
+  const rows = db
+    .prepare("SELECT * FROM chat_messages WHERE room = ? AND id > ? ORDER BY created_at ASC, id ASC")
+    .all(room, after);
+  if (!rows.length) return [];
+  const users = usersByToken();
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  for (const r of rows) {
+    if (r.reply_to && !byId.has(r.reply_to)) {
+      const p = db.prepare("SELECT * FROM chat_messages WHERE id = ? AND room = ?").get(r.reply_to, room);
+      if (p) byId.set(p.id, p);
+    }
+  }
+  const hostToken = hostTokenForRoom(room);
+  return rows.map((r) => messageOut(r, users, byId, viewerToken, hostToken));
+}
+
 // Callers validate the body length. kind falls back to 'text'; reply_to is
 // dropped unless it is a message in the same room. Returns the new message.
 export function postChat(room, token, body, { kind = "text", reply_to = null } = {}) {
@@ -727,6 +748,24 @@ function dmRowsForThread(threadId, limit = 200) {
     .all(threadId, limit);
 }
 
+// New real (DB-stored) messages between two people after a given id, oldest
+// first, shaped for the viewer (`otherPublic` is the other person's publicUser,
+// already known to the caller so it isn't refetched per poll).
+export function dmSince(myToken, otherToken, otherPublic, afterId) {
+  const after = Number(afterId) || 0;
+  const threadId = dmThreadId(myToken, otherToken);
+  const rows = db
+    .prepare("SELECT * FROM dm_messages WHERE thread_id = ? AND id > ? ORDER BY created_at ASC, id ASC")
+    .all(threadId, after);
+  return rows.map((r) => ({
+    id: r.id,
+    body: r.body,
+    at: r.created_at,
+    is_mine: r.from_token === myToken,
+    from: r.from_token === myToken ? null : otherPublic,
+  }));
+}
+
 // Sends a DM and persists it. Returns the stored row.
 export function postDm(fromToken, toToken, body) {
   const res = db
@@ -773,6 +812,7 @@ export function dmThreadsFor(user) {
       }));
       const liveMessages = otherRow
         ? dmRowsForThread(dmThreadId(user.token, otherRow.token)).map((r) => ({
+            id: r.id,
             from: r.from_token === user.token ? self : other,
             body: r.body,
             at: r.created_at,
@@ -785,6 +825,7 @@ export function dmThreadsFor(user) {
         id: t.id,
         with: other,
         with_username: otherRow?.username ?? other.username ?? null,
+        with_token: otherRow?.token ?? null,
         messages,
         last: { body: last.body, at: last.at },
         unread: last.is_mine ? 0 : 1,
@@ -803,6 +844,7 @@ export function dmThreadsFor(user) {
     const other = otherRow ? publicUser(otherRow) : null;
     if (!other) continue;
     const messages = dmRowsForThread(thread_id).map((r) => ({
+      id: r.id,
       from: r.from_token === user.token ? self : other,
       body: r.body,
       at: r.created_at,
@@ -812,6 +854,7 @@ export function dmThreadsFor(user) {
     const last = messages[messages.length - 1];
     built.push({
       id: `dm-${thread_id}`,
+      with_token: otherToken,
       with: other,
       with_username: otherRow.username,
       messages,

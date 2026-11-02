@@ -15,6 +15,8 @@ import {
   myEvents,
   dmThreadsFor,
   postDm,
+  dmSince,
+  chatSince,
   notificationsFor,
   ticketsFor,
   allAnnouncements,
@@ -28,7 +30,7 @@ import {
   canManageEvent,
   CHAT_MAX,
 } from "../social-db.js";
-import { notFoundPage, forbiddenPage } from "../views.js";
+import { notFoundPage, forbiddenPage, escape } from "../views.js";
 import {
   discoverPage,
   myEventsPage,
@@ -43,6 +45,7 @@ import {
   activityPage,
   formErrorPage,
 } from "../social-views.js";
+import { socialEventCard } from "../discover-views.js";
 import { html, field, backTo, wantsJson } from "./util.js";
 
 const EVENT_NOT_FOUND = "There's no event at that address. It may have been removed.";
@@ -173,6 +176,21 @@ export default async function socialRoutes(app) {
     );
   });
 
+  // Polled by Discover for events created by anyone since the newest slug the
+  // page already has. ?known=<comma-separated slugs currently on the page>.
+  // Returns {cards: "<li>...</li>..."} — rendered server-side so a new card
+  // looks exactly like one from a full page load.
+  app.get("/discover/poll", async (req, reply) => {
+    const known = new Set(queryString(req, "known").split(",").filter(Boolean));
+    const fresh = withFaces(listSocialEvents().filter((e) => !e.is_past && !known.has(e.slug)));
+    reply.send({
+      cards: fresh
+        .map((e) => `<li class="sx-item" data-event-slug="${escape(e.slug)}">${socialEventCard(e)}</li>`)
+        .join(""),
+      slugs: fresh.map((e) => e.slug),
+    });
+  });
+
   app.get("/my-events", async (req, reply) => {
     if (!requireLogin(req, reply, "/my-events")) return;
     const mine = myEvents(req.user);
@@ -219,7 +237,10 @@ export default async function socialRoutes(app) {
   });
 
   // Body fields: to (username, required), body (1..CHAT_MAX characters).
-  app.post("/messages/send", async (req, reply) => {
+  // 30/min per IP: stops DM spam floods, but stays well above fast human
+  // typing, since pages.js sends optimistically and a 429 would drop a
+  // message the sender already sees as sent.
+  app.post("/messages/send", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
     if (!requireLoginPost(req, reply, "/messages")) return;
     const toName = field(req.body, "to");
     const row = toName ? findUserByUsername(toName) : null;
@@ -231,6 +252,16 @@ export default async function socialRoutes(app) {
     const message = postDm(req.user.token, row.token, body);
     if (wantsJson(req)) return reply.code(201).send(message);
     reply.redirect(back);
+  });
+
+  // Polled by the open Messages thread for new DMs from the other person.
+  // ?after=<id> (0 for none yet). JSON: [{id, body, at, is_mine, from}].
+  app.get("/messages/:username/poll", async (req, reply) => {
+    if (!req.user) return reply.code(401).send({ error: "Log in first." });
+    const row = findUserByUsername(req.params.username);
+    if (!row || row.token === req.user.token) return reply.code(404).send({ error: "No such conversation." });
+    const after = Number(req.query?.after) || 0;
+    reply.send(dmSince(req.user.token, row.token, publicUser(row), after));
   });
 
   app.get("/notifications", async (req, reply) => {
@@ -307,6 +338,20 @@ export default async function socialRoutes(app) {
     const c = community(req.params.slug);
     if (!c) return fail(req, reply, 404, COMMUNITY_NOT_FOUND, "/communities");
     chatHandler(`community:${c.slug}`, `/communities/${c.slug}`, req, reply);
+  });
+
+  // Polled by an open chat room for messages posted by other people.
+  // ?after=<id> (0 for none yet). JSON: chatFor()-shaped messages, newest last.
+  app.get("/events/:slug/chat/poll", async (req, reply) => {
+    const event = getEvent(req.params.slug);
+    if (!event) return reply.code(404).send({ error: EVENT_NOT_FOUND });
+    reply.send(chatSince(`event:${event.slug}`, req.query?.after, req.user?.token ?? null));
+  });
+
+  app.get("/communities/:slug/chat/poll", async (req, reply) => {
+    const c = community(req.params.slug);
+    if (!c) return reply.code(404).send({ error: COMMUNITY_NOT_FOUND });
+    reply.send(chatSince(`community:${c.slug}`, req.query?.after, req.user?.token ?? null));
   });
 
   // Title 1..TITLE_MAX, body 0..BODY_MAX, pinned "1"/"on" for pinned.

@@ -31,6 +31,25 @@ export function verifyPassword(pw, stored) {
 export const DEV_ADMIN_ENABLED =
   !process.env.FLY_APP_NAME && process.env.NODE_ENV !== "production";
 
+// Options for every `session` cookie write (login, signup, admin login,
+// password change), so the four call sites can't drift apart. `secure` is
+// only on when deployed (same FLY_APP_NAME signal as above): Fly serves the
+// app over HTTPS, while local dev is plain http, where a secure cookie would
+// never be sent back and login would silently break.
+export function sessionCookieOptions() {
+  return { path: "/", httpOnly: true, signed: true, sameSite: "lax", secure: !!process.env.FLY_APP_NAME };
+}
+
+// Client key for rate limiting. On Fly every request arrives from Fly's
+// proxy, so req.ip is the same for everyone; Fly puts the real client
+// address in Fly-Client-IP, which Fly's docs recommend over parsing
+// X-Forwarded-For (fly.io/docs/networking/request-headers). Off Fly the
+// header is ignored, since nothing trusted sets it there.
+export function clientIp(req) {
+  const flyIp = process.env.FLY_APP_NAME ? req.headers["fly-client-ip"] : undefined;
+  return typeof flyIp === "string" && flyIp ? flyIp : req.ip;
+}
+
 // Plain guard for admin routes, called at the top of a handler:
 //   if (!requireAdmin(req, reply)) return;
 // Anonymous visitors go to the admin login; logged-in non-admins get a 403.
