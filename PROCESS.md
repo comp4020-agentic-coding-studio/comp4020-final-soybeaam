@@ -64,7 +64,7 @@ The frontend (`client.js`) uses small `fetch()` calls to retrieve updated
 data. Persistence of live updates was done with polling
 ([`404b547`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/404b547),
 [`cc22d1f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cc22d1f),
-[`d586429`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d586429)),
+[`200e686`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/200e686)),
 after I wrongly assumed real-time infrastructure already existed. Polling
 was judged the best option because the site isn't latency-sensitive enough
 to need WebSockets, and under the $0 costing model (256MB memory budget) a
@@ -130,7 +130,7 @@ were done with the help of auditing agents and logged in
   added polling for messages and chat, then
   [`cc22d1f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cc22d1f)
   extended it to Discover and the event page, and
-  [`d586429`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d586429)
+  [`200e686`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/200e686)
   dropped the interval to 1s to meet the brief's real-time bar. Live updates
   were then verified in-browser by the agent and user.
 
