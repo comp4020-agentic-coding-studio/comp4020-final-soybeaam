@@ -380,7 +380,10 @@
         .catch(function () {})
         .then(function () { polling = false; });
     };
-    setInterval(tick, 4000);
+    // 1s: the brief requires another open session to see a change "within
+    // about a second", so the poll interval is the thing that has to meet
+    // that bar, not just the endpoint being correct.
+    setInterval(tick, 1000);
     d.addEventListener("visibilitychange", function () { if (!d.hidden) tick(); });
   }
 
@@ -412,7 +415,7 @@
         .catch(function () {})
         .then(function () { evPolling = false; });
     };
-    setInterval(evTick, 4000);
+    setInterval(evTick, 1000);
     d.addEventListener("visibilitychange", function () { if (!d.hidden) evTick(); });
   }
 

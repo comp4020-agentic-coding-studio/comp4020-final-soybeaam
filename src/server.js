@@ -55,7 +55,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET ?? "dev-secret-change-me";
 
 await app.register(fastifyCookie, { secret: SESSION_SECRET });
 await app.register(fastifyFormbody);
-// Off by default (global: false) so the 4-second polling endpoints are never
+// Off by default (global: false) so the 1-second polling endpoints are never
 // throttled; only routes with a `config.rateLimit` block are limited.
 await app.register(fastifyRateLimit, { global: false, keyGenerator: clientIp });
 
