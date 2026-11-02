@@ -237,7 +237,10 @@ export default async function socialRoutes(app) {
   });
 
   // Body fields: to (username, required), body (1..CHAT_MAX characters).
-  app.post("/messages/send", async (req, reply) => {
+  // 30/min per IP: stops DM spam floods, but stays well above fast human
+  // typing, since pages.js sends optimistically and a 429 would drop a
+  // message the sender already sees as sent.
+  app.post("/messages/send", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
     if (!requireLoginPost(req, reply, "/messages")) return;
     const toName = field(req.body, "to");
     const row = toName ? findUserByUsername(toName) : null;
