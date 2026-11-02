@@ -41,29 +41,21 @@ construction, not convention.
 ## Picking the stack
 
 The app is deployed on Fly.io and uses SQLite (`node:sqlite`, one file at
-`/data/app.db` on the Fly volume — the only storage that survives a restart
+`/data/app.db` on the Fly volume SQLite schema — [`4ed4dd0`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/4ed4dd0), [`e6bff9e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/e6bff9e), [`a8bf18e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/a8bf18e) — the only storage that survives a restart
 or redeploy, since the volume is independent of the container image).
 Identity is a signed, httpOnly cookie named `session` storing the user's
 token (`src/server.js:44-54`); httpOnly means it can't be read or set via
 `document.cookie`/JS, to prevent XSS token theft.
 
-Real-time updates are polling, not WebSockets or SSE — a deliberate
-trade-off against cost and memory. Fly's config (`auto_stop_machines =
-"stop"`, `min_machines_running = 0`) scales the single machine to zero when
-idle, most of why the app costs cents, not dollars. A long-lived SSE or
-WebSocket connection fights that directly: the machine can never fully idle
-while a tab is open. 4-second polling is stateless — each tick is an
-ordinary GET, indistinguishable from a page load — so it costs nothing when
-nobody's looking, and reuses the `fetch()`-and-JSON pattern already used for
-check-ins and chat. The cost is up to ~4 seconds of staleness, acceptable
-for chat, DMs and attendance; nothing here is more latency-sensitive.
-Implemented across [`404b547`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/404b547) (polling added for messages, event chat and community chat), [`cc22d1f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cc22d1f) (polling extended to Discover and the event page), and [`d586429`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d586429) (polling interval dropped to 1s to meet the brief's real-time bar).
+Real-time updates are polling, not WebSockets or SSE, a deliberate
+trade-off against cost and memory.
+
 
 ## Multi-user, real-time persistence
 
-Before any code, a schema was created to lay out the groundowrk which was later later on created as [schema.html](docs\schema.html) to ensure consistent, non-redundant DB handling, especially when several people can interact and see updates (new events or messages) fom other users. The app tells people apart by assigning a token. 
+Before any code, a schema was created to lay out the groundowrk which was later later on created as [schema.html](docs\schema.html) to ensure consistent, non-redundant DB handling, especially when several people can interact and see updates (new events or messages) fom other users. The app tells people apart by assigning a token. [`915603f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/915603f), [`db75b2e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/db75b2e), [`1da73ce`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/1da73ce)
 
-The website is build on client.js and uses small fetch() methods to retrieve updated data. Persistence was done with polling, as I had wrongfully assumed there was already infrastructure for real-time updates by the time I was testing. Instead, persistence was interpreted differently from the AI evident from the process. For this site, polling was weighed to be the best option because the site isn't latency dependent enough for websockets. Additionally, the $0 costing model chosen for this assignment (256MB memory budget) would mean a server-sent events (SSE) connection might incur keep-alive socket costs which is out of scope for this project. 
+The website is build on client.js and uses small fetch() methods to retrieve updated data. Persistence was done with polling[`404b547`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/404b547), [`cc22d1f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cc22d1f), [`d586429`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d586429), as I had wrongfully assumed there was already infrastructure for real-time updates by the time I was testing. Instead, persistence was interpreted differently from the AI evident from the process. For this site, polling was weighed to be the best option because the site isn't latency dependent enough for websockets. Additionally, the $0 costing model chosen for this assignment (256MB memory budget) would mean a server-sent events (SSE) connection might incur keep-alive socket costs which is out of scope for this project. 
 
 Before writing the event/social schema, I sketched the entity relationships
 on paper, to keep DB handling consistent once several people could interact
@@ -75,8 +67,6 @@ shape allowed to leave the data layer — stripping token, password hash,
 email, role and preferences down to username, display name, avatar, bio,
 location and interests — so every view gets the same safe shape by
 construction, not convention.
-
-Implemented across: SQLite schema — [`4ed4dd0`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/4ed4dd0) (schema for event sources, geocoding and imports), [`e6bff9e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/e6bff9e) (social feed schema, post normaliser), [`a8bf18e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/a8bf18e) (ER diagram of the database schema); multi-user — [`915603f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/915603f) (password login, profile/settings, dev admin), [`db75b2e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/db75b2e) (sign-up page so accounts don't need seeding), [`1da73ce`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/1da73ce) (fixed hardcoded session secret, missing secure cookie flag, no rate limiting); real-time — [`404b547`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/404b547), [`cc22d1f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cc22d1f), [`d586429`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d586429) (see "Picking the stack" above for details).
 
 ## Directing, grounding and correcting the agent
 
