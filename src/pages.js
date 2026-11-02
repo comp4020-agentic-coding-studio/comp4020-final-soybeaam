@@ -145,7 +145,7 @@
           .catch(function () {})
           .then(function () { discPolling = false; });
       };
-      setInterval(discTick, 4000);
+      setInterval(discTick, 1000);
       d.addEventListener("visibilitychange", function () { if (!d.hidden) discTick(); });
     }
   }
@@ -529,7 +529,7 @@
           .catch(function () {})
           .then(function () { dmPolling = false; });
       };
-      setInterval(dmTick, 4000);
+      setInterval(dmTick, 1000);
       d.addEventListener("visibilitychange", function () { if (!d.hidden) dmTick(); });
     }
   }
