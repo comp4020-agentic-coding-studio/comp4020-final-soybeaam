@@ -75,6 +75,9 @@ shape allowed to leave the data layer — stripping token, password hash,
 email, role and preferences down to username, display name, avatar, bio,
 location and interests — so every view gets the same safe shape by
 construction, not convention.
+
+Implemented across: SQLite schema — [`4ed4dd0`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/4ed4dd0) (schema for event sources, geocoding and imports), [`e6bff9e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/e6bff9e) (social feed schema, post normaliser), [`a8bf18e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/a8bf18e) (ER diagram of the database schema); multi-user — [`915603f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/915603f) (password login, profile/settings, dev admin), [`db75b2e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/db75b2e) (sign-up page so accounts don't need seeding), [`1da73ce`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/1da73ce) (fixed hardcoded session secret, missing secure cookie flag, no rate limiting); real-time — [`404b547`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/404b547), [`cc22d1f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cc22d1f), [`d586429`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d586429) (see "Picking the stack" above for details).
+
 ## Directing, grounding and correcting the agent
 
 CLAUDE.md is the source of grounding, pointing at HANDBOOK.md for
