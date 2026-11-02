@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import fastifyFormbody from "@fastify/formbody";
+import fastifyRateLimit from "@fastify/rate-limit";
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
@@ -20,7 +21,7 @@ import {
   LIMITS,
 } from "./db.js";
 import { renderMarkdown } from "./markdown.js";
-import { verifyPassword, hashPassword } from "./auth.js";
+import { verifyPassword, hashPassword, sessionCookieOptions, clientIp } from "./auth.js";
 import { homePage, loginPage, signupPage, newEventPage, payPage, readmePage, notFoundPage } from "./views.js";
 import { eventPage, capacityBlock, attendeesBody, announcementsBody } from "./event-views.js";
 import { geocode, distanceFromCbdKm } from "./geocode.js";
@@ -43,12 +44,20 @@ import { safeNext } from "./routes/util.js";
 const app = Fastify({ logger: true });
 
 // Cookie identity only, deliberately — see PROCESS.md for the trade-off this
-// makes against real accounts/auth. SESSION_SECRET should be set in
-// production; a dev fallback keeps `pnpm check` working without extra setup.
+// makes against real accounts/auth. A dev fallback keeps `pnpm check` working
+// locally without extra setup, but a deployed Fly machine (FLY_APP_NAME is
+// always set there) refuses to boot without a real secret: signing sessions
+// with a string that's public in this repo would let anyone forge a cookie.
+if (!process.env.SESSION_SECRET && process.env.FLY_APP_NAME) {
+  throw new Error("SESSION_SECRET is not set. Run `fly secrets set SESSION_SECRET=...` before deploying.");
+}
 const SESSION_SECRET = process.env.SESSION_SECRET ?? "dev-secret-change-me";
 
 await app.register(fastifyCookie, { secret: SESSION_SECRET });
 await app.register(fastifyFormbody);
+// Off by default (global: false) so the 4-second polling endpoints are never
+// throttled; only routes with a `config.rateLimit` block are limited.
+await app.register(fastifyRateLimit, { global: false, keyGenerator: clientIp });
 
 app.addHook("onRequest", async (req) => {
   const token = req.cookies.session && req.unsignCookie(req.cookies.session);
@@ -118,7 +127,9 @@ app.get("/login", async (req, reply) => {
   reply.type("text/html").send(loginPage({ next, theme: req.guestTheme }));
 });
 
-app.post("/login", async (req, reply) => {
+// 30/min per IP: caps credential stuffing at a trickle while leaving a real
+// user (and the spec suite, which logs in ~17 times per run) well clear of it.
+app.post("/login", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
   const email = String(req.body?.email ?? "").trim().toLowerCase();
   const password = String(req.body?.password ?? "");
   const next = safeNext(req.body?.next);
@@ -141,7 +152,7 @@ app.post("/login", async (req, reply) => {
     return;
   }
   // The session is still the signed users.token cookie (docs/decisions/0001).
-  reply.setCookie("session", user.token, { path: "/", httpOnly: true, signed: true, sameSite: "lax" });
+  reply.setCookie("session", user.token, sessionCookieOptions());
   reply.redirect(next || "/");
 });
 
@@ -154,7 +165,9 @@ app.get("/signup", async (req, reply) => {
   reply.type("text/html").send(signupPage({ next, theme: req.guestTheme }));
 });
 
-app.post("/signup", async (req, reply) => {
+// 10/min per IP: nobody needs more than a couple of accounts a minute, and
+// this slows scripted account spam without blocking someone fixing typos.
+app.post("/signup", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req, reply) => {
   const name = String(req.body?.name ?? "").trim();
   const email = String(req.body?.email ?? "").trim().toLowerCase();
   const password = String(req.body?.password ?? "");
@@ -174,7 +187,7 @@ app.post("/signup", async (req, reply) => {
     return;
   }
   const user = createUser({ email, passwordHash: hashPassword(password), name });
-  reply.setCookie("session", user.token, { path: "/", httpOnly: true, signed: true, sameSite: "lax" });
+  reply.setCookie("session", user.token, sessionCookieOptions());
   reply.redirect(next || "/");
 });
 

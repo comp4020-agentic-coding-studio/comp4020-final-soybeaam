@@ -2,7 +2,7 @@
 // Every route except the login ones starts with requireAdmin. Users are
 // addressed by username (or email when they have none) in URLs, never by
 // token: users.token is the session cookie value.
-import { DEV_ADMIN_ENABLED, requireAdmin, verifyPassword } from "../auth.js";
+import { DEV_ADMIN_ENABLED, requireAdmin, verifyPassword, sessionCookieOptions } from "../auth.js";
 import {
   findUserByEmail,
   findUserByUsername,
@@ -36,7 +36,7 @@ function findUserById(id) {
 
 function setSession(reply, user) {
   // Same signed cookie as POST /login: the session is users.token.
-  reply.setCookie("session", user.token, { path: "/", httpOnly: true, signed: true, sameSite: "lax" });
+  reply.setCookie("session", user.token, sessionCookieOptions());
 }
 
 function formValues(row) {
