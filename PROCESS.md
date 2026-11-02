@@ -1,142 +1,113 @@
 # Process overview
 
-## From brief to project
+## The build
 
-The brief fixes three requirements (multi-user, real-time, persistent) and leaves "good" open. From HCI to production "good"
+The brief fixes three requirements: multi-user, real-time, persistent — and
+leaves "good" open to interpretation which is expanded on in [README.md](README.md) section. I started from the course's Fastify + `node:sqlite` template: its hard constraints (one `shared-cpu-1x` machine, 256MB memory, one volume at `/data`, HTTP on `0.0.0.0:$PORT`) were already satisfied, so the workflow only had to add features, not also solve deployment and persistence. The app, named Quad, a campus social/events platform has multiple features to satisfy the three requirements. 
 
+**Multi-user**: Quad is deployed on fly.io and will uniquely identify users on the site via a token.
 
-## The stack and what it costs
+**Real-time**: Real time persistence is done via polling and is used to render changes in real-time from messages, events, etc. 
 
-The app is deployed on fly.io and uses a SQLlite backend. 
-The app uses a signed, httpOnly cookie named session that stores the user's token (see src/server.js:44-54). Because it's httpOnly, you can't read or set it via document.cookie/JS which is intentional to prevents XSS token theft. 
+**Persistence**: Persistence is done with SQLite db that will continue to render new events by storing in a db.
+
+## Scoping
+
+Before writing the event/social schema, I sketched the entity relationships
+on paper, to keep DB handling consistent once several people could interact
+and see each other's updates; that sketch later became `docs/schema.html` as
+a lasting reference. People are told apart by a `users.token`
+(`crypto.randomUUID()`), never exposed to the browser except inside the
+signed cookie. `publicUser()` in `src/social-db.js:181` is the only user
+shape allowed to leave the data layer — stripping token, password hash,
+email, role and preferences down to username, display name, avatar, bio,
+location and interests — so every view gets the same safe shape by
+construction, not convention.
+
+## Picking the stack
+
+The app is deployed on Fly.io and uses SQLite (`node:sqlite`, one file at
+`/data/app.db` on the Fly volume — the only storage that survives a restart
+or redeploy, since the volume is independent of the container image).
+Identity is a signed, httpOnly cookie named `session` storing the user's
+token (`src/server.js:44-54`); httpOnly means it can't be read or set via
+`document.cookie`/JS, to prevent XSS token theft.
+
+Real-time updates are polling, not WebSockets or SSE — a deliberate
+trade-off against cost and memory. Fly's config (`auto_stop_machines =
+"stop"`, `min_machines_running = 0`) scales the single machine to zero when
+idle, most of why the app costs cents, not dollars. A long-lived SSE or
+WebSocket connection fights that directly: the machine can never fully idle
+while a tab is open. 4-second polling is stateless — each tick is an
+ordinary GET, indistinguishable from a page load — so it costs nothing when
+nobody's looking, and reuses the `fetch()`-and-JSON pattern already used for
+check-ins and chat. The cost is up to ~4 seconds of staleness, acceptable
+for chat, DMs and attendance; nothing here is more latency-sensitive.
 
 ## Several people at once
 
 Before any code, a schema was created to lay out the groundowrk which was later later on created as [schema.html](docs\schema.html) to ensure consistent, non-redundant DB handling, especially when several people can interact and see updates (new events or messages) fom other users. The app tells people apart by assigning a token. 
 
-The website is build on client.js and uses small fetch() methods to retrieve updated data. For this site, polling is the best option because it is not the type of site where latency is imperative and would need a server that holds up long-lived connections like websockets. Due to the $0 costing model chosen for this assignment (256MB memory budget) a server-sent events (SSE) connection costs a keep-alive socket.  
+The website is build on client.js and uses small fetch() methods to retrieve updated data. Persistence was done with polling, as I had wrongfully assumed there was already infrastructure for real-time updates by the time I was testing. Instead, persistence was interpreted differently from the AI evident from the process. For this site, polling was weighed to be the best option because the site isn't latency dependent enough for websockets. Additionally, the $0 costing model chosen for this assignment (256MB memory budget) would mean a server-sent events (SSE) connection might incur keep-alive socket costs which is out of scope for this project. 
 
-## Persistence
+## Building it
 
-Events, RSVPs/maybes, event chat, community chat, DMs, and announcements (with pin state) are all durable — created by one person, visible to anyone, surviving restarts and redeploys
+Saved events, follows, read notifications, reactions and poll votes
+are the exception, are kept in `localStorage`.
 
+`client.js`/`pages.js` poll JSON endpoints to pick up what other users do in the app.
 
-## Corrections that landed
-- The CLAUDE.md file is a source of grounding which references HANDBOOK.md. Unfortunately, there were times when claude did not follow these instructions, as some session conversations were missed.
-- The light/dark theme begun vertically stacked and I had to prompt the agent twice to resolve this. 
-- Persistence. Every new feature that intuitively required persistence was created to exist statically. Such as the theme colours, which had to be corrected.
-- At the beginning of the project, I laid ground rules in CLAUDE.md which the agent overwrote. 
-- There were a few vulnerability issues that I caught early and late on in the project which required the creation of more tests and fixes. 
-- Real-time events were something that had to be corrected, as they persisted but changes only rendered when reloaded. 
- 
-## How I directed, grounded and corrected the work. 
-- The CLAUDE.md file is a source of grounding which references HANDBOOK.md, which lays out the groundrules for the AI.
+## Directing, grounding and correcting the agent
 
-### Fix on exposed host details with raw session token 
-Early on, the app was found to be surfacing host details by exposing the raw session token stored in events.created_by — that token is the session credential, so leaking it would let a stranger impersonate the host. The fix was publicUser() in src/social-db.js:181 — the only user shape allowed to leave that module. It explicitly strips token, password hash, email, role and preferences, returning just username, display_name, avatar_url, bio, location, interests. Every view file that renders a person (event-views.js, discover-views.js, community-views.js) is commented to say it only ever receives this shape — so there's a structural chokepoint, not a per-page discipline that could be forgotten.
+CLAUDE.md is the source of grounding, pointing at HANDBOOK.md for
+agent-facing rules; `docs/conversation_*.md` keeps a timestamped record per
+session of what was asked and delivered. Work went one feature or fix per
+prompt, verified locally then on the deployed app before moving on.
 
+Several corrections were real bugs caught by treating "it compiles" as
+necessary, not sufficient:
+
+- **CLAUDE.md drift.** Sessions sometimes skipped HANDBOOK.md's rules when
+  not re-grounded, and one session partially overwrote earlier ground rules which resulted in a manual correction.
+
+- [`64a4655`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/64a4655) Asks to restore the app to its crit-8 state. Previous commits were based off the idea that event data would be fine to scrape from the web, however, a few legal and cost issues arose when trying to implement this. Attempting to include this feature in the app generated a lot of junk code which I found it would be easier to rollback and start fresh considering at this time Quad was still relatively bare. 
+
+- **Theme layout and persistence.** The light/dark toggle started out
+  vertically stacked (two prompts to fix); the theme choice also reset on
+  reload as pure client state this was fixed via a cookie/DB column.
+  
+- [`c6a188e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/c6a188e) Redesigned the Coming up section as a one-at-a-time animated slider. However the result wasn't as I had indended, so multiple other smaller prompts were used to get it right. A larger more sophisticated prompt was skipped due to wanting to reduce token consumption. ([`90950f3`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/90950f3), [`fdd9c26`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/fdd9c26), [`f53809a`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/f53809a), [`7b2d55d`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/7b2d55d)) 
+- **A token-rotation crash, found by writing a test.** Writing the
+  password-change spec test surfaced a real bug: changing password for a
+  user with DM history hit a SQLite foreign-key violation, because
+  `rotateToken()` predated `dm_messages` and never learned its two token
+  columns. Reproduced live, fixed, confirmed.
+- **Cross-user data leaks.** A dedicated auth/leak pass found host details
+  surfaced via the raw session token in `events.created_by` — leaking a real
+  credential would let a stranger impersonate the host. Fixed by the
+  `publicUser()` chokepoint above; the same pass also found a tampered
+  session cookie needed to fail closed, and DM threads needed to stay
+  unreadable by a third party even guessing the thread id. These became
+  `spec/auth.test.ts`: 10 tests covering tamper-resistance, logout, password
+  rotation invalidating every other device, private routes rejecting
+  anonymous requests, DM isolation, and login not revealing whether an email
+  has an account.
+- **A false-positive CI failure and an accent-colour bug.** Three Docker
+  CI-equivalent runs gave two failures on different tests — not a real bug,
+  but another session committing fixes into the same shared checkout
+  mid-build; these checks now run from an isolated worktree instead.
+  Separately, the accent colour chosen on one page silently reset to purple
+  elsewhere: `client.js` saves it via `JSON.stringify` (with quotes), but the
+  pre-paint `<head>` script read it back with a plain `getItem`, so other
+  pages got a literal `data-accent` matching no CSS rule — fixed by parsing
+  it consistently.
+- **Real-time persisted but wasn't live.** Chat, DMs, then Discover and the event page all "persisted", however not as intended because persistance didn't appear live as oer the breifs requirements. Fixed over two rounds logged in [conversation](docs\conversation_2026-10-31-polling-and-signup.md). Live updates were then tested by the agent and user in the browser.
+
+Every change on `main` goes through `pnpm check` (typecheck plus the full
+`spec/` suite) and a real request against live Fly before being called done. Auditing was done towards the end of the project to double check the website worked as intended and showed what "good" is.
 
 ## What I'd still change
 
+Id have more security features and have some tokens from event scrapers to add into the site. I'd include more messaging features such as group chats.
+
 ---
-
-## Reference trace: commits ↔ conversation logs
-
-Scratch reference only, built from `git log` and `docs/conversation*.md`, for
-tracing back what happened and when while writing the sections above. Not
-part of the submission text itself.
-
-### 2026-09-28 — initial scaffold
-- [`6b7a4b8`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/6b7a4b8) — Initial commit. No conversation log.
-
-### 2026-10-06 — core app (no conversation log recorded for this date)
-- [`3cf6d07`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/3cf6d07) — Build the Quad events app: core check-in loop, card UI, ADR scaffold. First working Fastify + `node:sqlite` server; users/events/check-ins schema; login, hosting, check-in routes; 5 new spec tests added.
-- [`b98926e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/b98926e) — Add categories, pricing, a mocked checkout, and sidebar sort/filter. `welcome-mixer` kept at $0 deliberately so existing spec tests didn't need a payment step.
-
-### 2026-10-07 — docs/conversation.md (crit 8/9 admin) + docs/conversation_2026-10-07-social-aggregator.md
-- [`59257a9`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/59257a9) — Update process docs and add crit-8 reflection. Committed `PROCESS.md`, `README.md`, ADR 0001, `reflections/crit-8.md` ahead of crit 8 preflight/deploy.
-- [`34973e8`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/34973e8) — Add conversation log (the crit-8/9 log, `docs/conversation.md`).
-- [`a2da6bf`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/a2da6bf) — Added conversation.md rules in CLAUDE.md.
-- [`c3d4bd3`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/c3d4bd3) — update claude.md.
-- [`4ed4dd0`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/4ed4dd0) — Add schema for event sources, geocoding and imports.
-- [`8b62fec`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/8b62fec) — Extend the add-event form with venue, address, description and URL.
-- [`4dd9fbd`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/4dd9fbd) — Add an event map (Leaflet + OSM + marker clustering).
-- [`e30cc04`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/e30cc04) — Import events from ICS feeds, with cached geocoding.
-- [`5d0c0af`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/5d0c0af) — Add Ticketmaster as an optional ticketed-events supplement.
-- [`911f261`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/911f261) — Add ADR 0002 and update conversation log.
-- [`7cafd98`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/7cafd98) — Split imported holidays into their own list, off the map and grid.
-- [`dc945c1`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/dc945c1) — Remove the holidays list; add ADR 0003 for a social aggregator. Holidays reverted after deciding to pivot to the social aggregator instead.
-- [`e6bff9e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/e6bff9e) — Add the social feed: schema, post normaliser, /social page, hide.
-- [`2d35825`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/2d35825) — Add social connectors for YouTube, Reddit, Bluesky, Mastodon, X, Instagram, Facebook.
-- [`885180d`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/885180d) — Let users paste a post link onto an event page (oEmbed).
-- [`65dfa28`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/65dfa28) — Add conversation log for the social aggregator session (this is `docs/conversation_2026-10-07-social-aggregator.md`).
-- Platform notes logged that session: Bluesky needs an app password, Reddit API keys need manual approval, X costs ~US$0.005/post read, Instagram/Facebook need Meta app review, Mastodon hashtag search needs no credentials.
-
-### 2026-10-08 — three conversation logs (demo-tags, site-redesign, social-events)
-- [`64a4655`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/64a4655) — Restore the app to its crit-8 state. Rollback before the redesign branch work.
-- [`915603f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/915603f) — Redesign Quad: password login, home page, profile/settings, dev admin. Built via Opus orchestrator on `worktree-site-redesign`, stopped partway by the user; see `docs/conversation_2026-10-08-site-redesign.md`.
-- [`a65bb67`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/a65bb67) — Add conversation log for the site redesign session.
-- [`28867ee`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/28867ee) — Extend Quad into a social event platform. Sidebar app shell, rich event page, Discover/My Events/Saved/Tickets/Map/Communities/Activity/Announcements/Messages, localStorage-backed client state. See `docs/conversation_2026-10-08-social-events.md` entries 1–6.
-- [`a6346f0`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/a6346f0) — Add real coordinates and address lookup for events. `src/geocode.js` via Nominatim, cached, off-switchable; see log entry 8.
-- [`4341211`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/4341211) — Tag seeded dummy users and events with a DEMO label. Built on `worktree-demo-tags`; see `docs/conversation_2026-10-08-demo-tags.md` — not merged to main in that session (merged later, see 2026-10-17 `5097055`).
-- [`fcd9d07`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/fcd9d07) — Correct the DEMO tag contrast figure to 6.4:1.
-- [`aab241a`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/aab241a) — Swap the drawn maps for real OpenFreeMap maps. MapLibre GL JS 5.24.0 via pinned CDN + SRI; see log entry 9.
-
-### 2026-10-14 — docs/conversation_2026-10-14-theme-colors.md
-- [`25d423a`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/25d423a) — Merge worktree-site-redesign into main.
-- [`13e0121`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/13e0121) — reflection done (crit-9 reflection, inferred from date).
-- [`dc8812e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/dc8812e) — Add accent colour palettes and a light/dark/system theme dial. Built on `feature/theme-light-mode`; see conversation log — plan recorded but log notes implementation was still in progress when written.
-- [`9827b83`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/9827b83) — Persist guest theme via cookie; widen site-main on large screens.
-
-### 2026-10-17 — docs/conversation_2026-10-17-event-image-curation.md
-- [`a2c905a`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/a2c905a) — Cache, gzip, and ETag the /style.css response.
-- [`c31d591`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/c31d591) — Add real event cover photos for the placeholder image slots.
-- [`6bebe6c`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/6bebe6c) — Rename event cover photos to category-based filenames.
-- [`416f6d0`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/416f6d0) — Resize and compress event cover images to cut homepage load time. 173MB → 11.3MB (93% reduction) via `sharp`, used as a temporary devDependency then removed.
-- [`258111a`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/258111a) — Curate event cover images to match each event's specific theme. Added explicit `EVENT_COVERS` slug→filename map in `src/event-images.js`, checked before the category-hash fallback. Root cause noted in the log: slug-hash into a small per-category pool meant unrelated events in the same category could share a photo.
-- [`c7c3ca0`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/c7c3ca0) — Log event image resize and curation session (this conversation log).
-- [`5097055`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/5097055) — Merge branch 'worktree-demo-tags' into worktree-merge-main.
-- [`13a427b`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/13a427b) — Merge branch 'feature/theme-light-mode' into worktree-merge-main.
-- [`dabbf9b`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/dabbf9b) — Wire direct messages to a server-backed dm_messages table.
-- [`2dc4c59`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/2dc4c59) — Merge branch 'worktree-dm-server-backed' into worktree-merge-main.
-
-### 2026-10-21 — no conversation log recorded for this date
-- [`85ab7d8`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/85ab7d8) — Add event image assets.
-- [`d94420a`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d94420a) — Fix broken CI: restore demo tag on check-in list, fix stale test.
-- [`3f067c1`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/3f067c1) — Remove uncompressed event image originals.
-- [`24a934f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/24a934f) — Add crit-10 reflection scaffold.
-- [`0c7e150`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/0c7e150) — Fill in crit-10 reflection.
-
-### 2026-10-22 — docs/conversation_2026-10-22-ui-polish.md
-- [`6d2f356`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/6d2f356) — Redirect home page Browse events button to /discover.
-- [`d1fe51b`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/d1fe51b) — Switch Quad's default accent colour from orange to purple.
-- [`51c4cae`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/51c4cae) — Turn Coming up carousel into an animated, auto-playing slideshow on wide screens.
-- [`8972ce3`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/8972ce3) — Add a brief page-load overlay. Progressive enhancement, no-JS safe, respects reduced motion, ~420ms CSS animation.
-- [`efa7e51`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/efa7e51) — Animate the home hero illustration. Entrance waits for the loader to finish; off under reduced motion.
-- [`65b3394`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/65b3394) — Make the desktop sidebar collapsible to an icon rail. State persisted under `quad:sidebar-collapsed`, restored pre-paint.
-- [`f6ef271`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/f6ef271) — Log this session's conversation (this file).
-- [`f4f468d`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/f4f468d) — Merge branch 'worktree-redirect-browse-events'.
-- [`4469401`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/4469401) — Merge branch 'worktree-purple-accent'.
-- [`038cdad`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/038cdad) — Merge branch 'worktree-coming-up-carousel'.
-- Verification note from the log: `pnpm check` passed 9/9; only headless screenshots taken, not a live interactive browser check.
-
-### 2026-10-26 — no conversation log recorded for this date
-- [`c6a188e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/c6a188e) — Redesign the Coming up section as a one-at-a-time animated slider.
-- [`6b41299`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/6b41299) — Credit Pexels for images in the site footer.
-- [`90950f3`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/90950f3) — Turn the Coming up slider into a continuous, draggable filmstrip.
-- [`fdd9c26`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/fdd9c26) — Shrink slider cards and keep the drift animating on hover.
-- [`f53809a`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/f53809a) — Make slider cards genuinely small, not just the slide width.
-- [`7b2d55d`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/7b2d55d) — Bring slider card width back up to 12.5rem.
-- [`285b5c3`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/285b5c3) — Make slider cards a uniform height.
-- [`e47de7f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/e47de7f) — Animate the home hero SVG and make it interactive.
-- [`3ac19ce`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/3ac19ce) — Make the hero illustration respond to pointer and click.
-- [`baff49f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/baff49f) — Merge remote-tracking branch 'origin/feature/theme-light-mode' into merge-all.
-- [`cb33cb0`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cb33cb0) — Merge remote-tracking branch 'origin/worktree-footer-pexels-credit' into merge-all.
-- [`4bd51fd`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/4bd51fd) — Merge worktree-purple-accent, reconciling hero animation with light-mode's new entrance sequence.
-
-### 2026-10-29 — no conversation log recorded for this date (this session)
-- [`41afd8f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/41afd8f) — Merge branch 'worktree-coming-up-carousel' (updated tip). Branch had diverged from what main had previously merged; re-merged the current tip.
-- [`cf9bfc8`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-soybeaam/commit/cf9bfc8) — Merge branch 'merge-all' (theme-light-mode, footer pexels credit, purple accent hero). Brought in the three branches `merge-all` had already combined.
-- Session also: deleted 5 fully-merged branches (local + remote) and their worktrees where not locked by another active session; deployed current `main` to Fly (`comp4020-final-soybeaam.fly.dev`); renamed 28 (local) + 4 (Fly volume) leftover "Spec-created event {timestamp}" rows to names matching their assigned cover photos, directly in each `data/app.db` (gitignored, no commit needed for that part).
-
-Despite telling the AI to record conversation logs in 
