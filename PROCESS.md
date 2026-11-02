@@ -74,9 +74,6 @@ shape allowed to leave the data layer — stripping token, password hash,
 email, role and preferences down to username, display name, avatar, bio,
 location and interests — so every view gets the same safe shape by
 construction, not convention.
-
-## Building it
-
 ## Directing, grounding and correcting the agent
 
 CLAUDE.md is the source of grounding, pointing at HANDBOOK.md for
@@ -128,9 +125,5 @@ Every change on `main` goes through `pnpm check` (typecheck plus the full
 
 ## What I'd still change
 
-`/client.js` and `/pages.js` are cached for an hour with no cache-busting, so
-a deploy can leave an open tab running stale JS until a hard reload — I'd add
-a content hash or version string. I'd also replace the cookie-only identity
-model (no email verification) with something stronger, now that host-only
-powers like pinning and announcements exist and are worth protecting
-properly.
+`/client.js` and `/pages.js` are cached for an hour with no cache-busting, so a deploy can leave an open tab running stale JS until a hard reload which was redundant to deal with throughout the project. I'd add a content hash or version string. I'd also replace the cookie-only identity
+model (no email verification) with something stronger, since host have more permissions like pinning and announcements which are worth protecting properly.

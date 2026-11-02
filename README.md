@@ -7,7 +7,7 @@ an event. Sorting, category filters and a map let people find events
 that aren't just from ANU but from other universities, clubs, or
 outside any institution.
 
-## What's available today
+## What's live
 
 On Quad, you can:
 - Log in with email and password, with your session persisting when
@@ -136,10 +136,6 @@ above can leak those fields even by accident.
 
 None of this exists yet, and nothing above depends on it.
 
-- **Real-time updates.** Chat and attendee counts currently need a
-  page reload to see someone else's change. Week 10's brief is
-  updates within about a second; SSE or WebSockets over the existing
-  Fastify process is the planned shape (see ADR 0001).
 - **Booking with capacity.** Limited spots, and the rule that the last
   spot goes to exactly one person (first committed request wins). This
   is where a real capacity race appears, and where the current
